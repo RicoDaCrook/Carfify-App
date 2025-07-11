@@ -1,8 +1,20 @@
-// HINWEIS: Dies ist die endgültig korrigierte Version, die das "weiße Fenster"-Problem behebt.
+// HINWEIS: Finale Version. Der Fehler mit dem weißen Fenster wurde behoben, indem die fehlende Spinner-Komponente hinzugefügt wurde.
 
 // Da React und ReactDOM global über die <script>-Tags in index.html geladen werden,
 // können wir direkt darauf zugreifen.
 const { useState } = React;
+
+// Lade-Spinner Komponente (Diese hat gefehlt!)
+const Spinner = ({ text = 'Analysiere...' }) => (
+    <div className="flex items-center justify-center gap-2">
+        <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span>{text}</span>
+    </div>
+);
+
 
 // HAUPT-APP-KOMPONENTE
 function App() {
@@ -109,14 +121,7 @@ function App() {
                     <textarea id="problem" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500" placeholder="z.B. Mein Auto macht vorne rechts ein schleifendes Geräusch beim Lenken..." value={problemText} onChange={(e) => setProblemText(e.target.value)} rows="3"></textarea>
                 </div>
                 <button onClick={handleSubmit} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 ease-in-out transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-blue-400 disabled:scale-100 flex items-center justify-center gap-2" disabled={isLoading || !problemText}>
-                    {isLoading ? (
-                        <div className="flex items-center justify-center gap-2">
-                            <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                            <span>Analysiere...</span>
-                        </div>
-                    ) : (
-                        <span><i className="fa-solid fa-microchip mr-2"></i>Analyse & Kostenschätzung starten</span>
-                    )}
+                    {isLoading ? <Spinner /> : <span><i className="fa-solid fa-microchip mr-2"></i>Analyse & Kostenschätzung starten</span>}
                 </button>
 
                 {showResults && aiAnalysis && (
