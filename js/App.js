@@ -1,3 +1,12 @@
+// This is a multi-file project. 
+// ONLY THE CONTENT OF /js/App.js NEEDS TO BE UPDATED.
+// The other files (/index.html, /api/workshops.js, /api/analyze.js) remain unchanged.
+
+// -----------------------------------------------------------------------------
+// FILE TO UPDATE: /js/App.js
+// (This is the main React component with the restored UI)
+// -----------------------------------------------------------------------------
+/*
 const { useState } = React;
 
 // Lade-Spinner Komponente
@@ -20,9 +29,9 @@ function WorkshopCard({ workshop }) {
         try {
             const reviewText = workshop.reviews.map(r => `- "${r.text}"`).join('\n');
             const prompt = `Analysiere die folgenden Kundenrezensionen für eine Autowerkstatt. Erstelle eine strukturierte Zusammenfassung im JSON-Format. Das JSON-Objekt muss exakt diese Struktur haben: {"summary": "Eine kurze Gesamtzusammenfassung in 2-3 Sätzen.","pros": ["Ein positiver Punkt, z.B. 'Schneller Service'"], "cons": ["Ein negativer Punkt, z.B. 'Teurer als erwartet'"]}. Hier sind die Rezensionen: ${reviewText}`;
-
+            
             const response = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) });
-
+            
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ message: 'Unbekannter Analyse-Fehler' }));
                 throw new Error(errorData.message || `Analyse API Fehler (${response.status})`);
@@ -58,8 +67,12 @@ function WorkshopCard({ workshop }) {
 // Haupt-App-Komponente
 function App() {
     const [hsn, setHsn] = useState(''); const [tsn, setTsn] = useState(''); const [problemText, setProblemText] = useState(''); const [foundVehicle, setFoundVehicle] = useState(null); const [isFindingVehicle, setIsFindingVehicle] = useState(false); const [aiAnalysis, setAiAnalysis] = useState(null); const [isLoading, setIsLoading] = useState(false); const [error, setError] = useState(''); const [workshops, setWorkshops] = useState([]);
-    const handleFindVehicle = async () => { const vehicleDatabase = { "0603-BJM": { name: "VW Golf VIII 2.0 TDI", ps: "150 PS", year: "2019-heute", imageUrl: "https://placehold.co/600x400/e0e0e0/000000?text=VW+Golf+VIII" }}; setIsFindingVehicle(true); setFoundVehicle(null); setError(''); await new Promise(resolve => setTimeout(resolve, 1000)); const key = `${hsn}-${tsn.toUpperCase()}`; const vehicle = vehicleDatabase[key]; if (vehicle) { setFoundVehicle(vehicle); } else { setError('Fahrzeug nicht gefunden. Bitte prüfen Sie die HSN/TSN.'); } setIsFindingVehicle(false); };
-
+    
+    const handleFindVehicle = async () => { 
+        const vehicleDatabase = { "0603-BJM": { name: "VW Golf VIII 2.0 TDI", ps: "150 PS", year: "2019-heute", imageUrl: "https://placehold.co/600x400/e0e0e0/000000?text=VW+Golf+VIII" }}; 
+        setIsFindingVehicle(true); setFoundVehicle(null); setError(''); await new Promise(resolve => setTimeout(resolve, 1000)); const key = `${hsn}-${tsn.toUpperCase()}`; const vehicle = vehicleDatabase[key]; if (vehicle) { setFoundVehicle(vehicle); } else { setError('Fahrzeug nicht gefunden. Bitte prüfen Sie die HSN/TSN.'); } setIsFindingVehicle(false); 
+    };
+    
     const handleSubmit = async () => {
         if (!problemText.trim()) { setError('Bitte beschreiben Sie zuerst Ihr Problem.'); return; }
         setIsLoading(true); setAiAnalysis(null); setWorkshops([]); setError('');
@@ -83,17 +96,58 @@ function App() {
         return await response.json();
     };
 
-    const fetchWorkshops = async (latitude, longitude) => {
-        const response = await fetch(`/api/workshops?lat=${latitude}&lon=${longitude}`);
+    const fetchWorkshops = async (latitude, longitude) => { 
+        const response = await fetch(`/api/workshops?lat=${latitude}&lon=${longitude}`); 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ message: 'Unbekannter Werkstatt-Suche-Fehler' }));
             throw new Error(errorData.message || `Werkstatt-Suche API Fehler (${response.status})`);
         }
-        return await response.json();
+        return await response.json(); 
     };
 
-    return ( <div className="min-h-screen p-4 md:p-8 flex justify-center items-start"><div className="bg-white p-6 md:p-8 rounded-2xl shadow-lg shadow-slate-200/50 w-full max-w-4xl border border-slate-200/80"><header className="text-center mb-8"><img src="/logo.png" alt="Carfify Logo" className="mx-auto h-24 w-auto" /></header><div className="p-5 bg-slate-50 border border-slate-200/80 rounded-xl mb-6"><h2 className="text-lg font-bold text-slate-800 mb-3">1. Fahrzeug identifizieren <span className="text-sm font-normal text-slate-500">(Optional)</span></h2><div className="flex flex-col sm:flex-row items-start gap-4"><div className="w-full sm:w-auto flex-1"><label htmlFor="hsn" className="block text-slate-700 text-sm font-semibold mb-1">HSN</label><input type="text" id="hsn" maxLength="4" className="w-full p-2 border border-slate-300 rounded-lg" placeholder="z.B. 0603" value={hsn} onChange={(e) => setHsn(e.target.value)} /></div><div className="w-full sm:w-auto flex-1"><label htmlFor="tsn" className="block text-slate-700 text-sm font-semibold mb-1">TSN</label><input type="text" id="tsn" maxLength="3" className="w-full p-2 border border-slate-300 rounded-lg" placeholder="z.B. BJM" value={tsn} onChange={(e) => setTsn(e.target.value.toUpperCase())} /></div><div className="w-full sm:w-auto self-end"><button onClick={handleFindVehicle} disabled={isFindingVehicle} className="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 px-4 rounded-lg transition disabled:bg-slate-400 flex items-center justify-center gap-2">{isFindingVehicle ? <Spinner text="Suchen..."/> : <><i className="fa-solid fa-search"></i> <span>Finden</span></>}</button></div></div></div>{foundVehicle && ( <div className="p-5 mb-6 bg-blue-50 border border-blue-200 rounded-xl fade-in"><div className="flex flex-col sm:flex-row items-center gap-4"><img src={foundVehicle.imageUrl} onError={(e) => e.target.src='https://placehold.co/600x400/e0e0e0/000000?text=Bild+fehlt'} alt={foundVehicle.name} className="w-32 h-auto rounded-lg bg-white object-cover" /><div><p className="font-bold text-lg text-slate-800">{foundVehicle.name}</p><p className="text-sm text-slate-600">Leistung: {foundVehicle.ps}</p><p className="text-sm text-slate-600">Bauzeitraum: {foundVehicle.year}</p></div></div></div> )}<div className="p-5 bg-slate-50 border border-slate-200/80 rounded-xl mb-6"><h2 className="text-lg font-bold text-slate-800 mb-3">2. Problem beschreiben</h2><textarea id="problem" className="w-full p-3 border border-slate-300 rounded-lg" placeholder="z.B. Mein Auto quietscht beim Bremsen..." value={problemText} onChange={(e) => setProblemText(e.target.value)} rows="3"></textarea></div><button onClick={handleSubmit} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg" disabled={isLoading || !problemText}>{isLoading ? <Spinner text="Analysiere & Suche..." /> : <span><i className="fa-solid fa-search-dollar mr-2"></i>Analyse & Werkstätten finden</span>}</button>{error && <div className="p-3 mt-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg"><p>{error}</p></div>}{(aiAnalysis || workshops.length > 0) && ( <div className="mt-8 space-y-8 fade-in">{aiAnalysis && ( <div className="p-5 bg-slate-100 border border-slate-200/80 rounded-xl"><h2 className="text-xl font-bold text-slate-800 mb-4">KI-Problemanalyse</h2><div className="space-y-3 text-slate-700"><p><strong>Mögliche Ursache:</strong> {aiAnalysis.possibleCause}</p><p><strong>Empfehlung:</strong> {aiAnalysis.recommendation}</p><div><strong>Für Selbermacher:</strong><ul className="list-disc list-inside ml-4 mt-1 text-sm">{aiAnalysis.diyTips.map((tip, i) => <li key={i}>{tip}</li>)}<li><a href={`https://www.youtube.com/results?search_query=${encodeURIComponent(aiAnalysis.youtubeSearchQuery)}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Passende YouTube-Tutorials ansehen <i className="fa-solid fa-arrow-up-right-from-square text-xs"></i></a></li></ul></div></div></div> )}{workshops.length > 0 && ( <div><h2 className="text-xl font-bold text-slate-800 mb-4">Passende Werkstätten in deiner Nähe</h2><div className="grid grid-cols-1 lg:grid-cols-2 gap-4">{workshops.map(shop => <WorkshopCard key={shop.place_id} workshop={shop} />)}</div></div> )}</div> )}</div></div> );
-}
-const container = document.getElementById('root');
-const root = ReactDOM.createRoot(container);
-root.render(<App />);
+    const calculateCost = (analysis) => {
+        if (!analysis || !analysis.estimatedLabor) return { min: 0, max: 0 };
+        const averageLaborRate = 95;
+        const partsMarkup = 1.2;
+        const uncertaintyFactor = foundVehicle ? 0.20 : 0.40;
+        const baseCost = (analysis.estimatedLabor * averageLaborRate) + (analysis.estimatedPartsCost * partsMarkup);
+        const minCost = baseCost * (1 - uncertaintyFactor);
+        const maxCost = baseCost * (1 + uncertaintyFactor);
+        return { min: Math.round(minCost / 10) * 10, max: Math.round(maxCost / 10) * 10 };
+    };
+    const estimatedCost = calculateCost(aiAnalysis);
+
+    return ( 
+        <div className="min-h-screen p-4 md:p-8 flex justify-center items-start">
+            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-lg shadow-slate-200/50 w-full max-w-4xl border border-slate-200/80">
+                <header className="text-center mb-8"><img src="/logo.png" alt="Carfify Logo" className="mx-auto h-24 w-auto" /></header>
+                
+                <div className="p-5 bg-slate-50 border border-slate-200/80 rounded-xl mb-6">
+                    <h2 className="text-lg font-bold text-slate-800 mb-3">1. Fahrzeug identifizieren <span className="text-sm font-normal text-slate-500">(Optional)</span></h2>
+                    <div className="flex flex-col sm:flex-row items-start gap-4">
+                        <div className="w-full sm:w-auto flex-1"><label htmlFor="hsn" className="block text-slate-700 text-sm font-semibold mb-1">HSN</label><input type="text" id="hsn" maxLength="4" className="w-full p-2 border border-slate-300 rounded-lg" placeholder="z.B. 0603" value={hsn} onChange={(e) => setHsn(e.target.value)} /></div>
+                        <div className="w-full sm:w-auto flex-1"><label htmlFor="tsn" className="block text-slate-700 text-sm font-semibold mb-1">TSN</label><input type="text" id="tsn" maxLength="3" className="w-full p-2 border border-slate-300 rounded-lg" placeholder="z.B. BJM" value={tsn} onChange={(e) => setTsn(e.target.value.toUpperCase())} /></div>
+                        <div className="w-full sm:w-auto self-end"><button onClick={handleFindVehicle} disabled={isFindingVehicle} className="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 px-4 rounded-lg transition disabled:bg-slate-400 flex items-center justify-center gap-2">{isFindingVehicle ? <Spinner text="Suchen..."/> : <><i className="fa-solid fa-search"></i> <span>Finden</span></>}</button></div>
+                    </div>
+                </div>
+                {foundVehicle && ( <div className="p-5 mb-6 bg-blue-50 border border-blue-200 rounded-xl fade-in"><div className="flex flex-col sm:flex-row items-center gap-4"><img src={foundVehicle.imageUrl} onError={(e) => e.target.src='https://placehold.co/600x400/e0e0e0/000000?text=Bild+fehlt'} alt={foundVehicle.name} className="w-32 h-auto rounded-lg bg-white object-cover" /><div><p className="font-bold text-lg text-slate-800">{foundVehicle.name}</p><p className="text-sm text-slate-600">Leistung: {foundVehicle.ps}</p><p className="text-sm text-slate-600">Bauzeitraum: {foundVehicle.year}</p></div></div></div> )}
+
+                <div className="p-5 bg-slate-50 border border-slate-200/80 rounded-xl mb-6">
+                    <h2 className="text-lg font-bold text-slate-800 mb-3">2. Problem beschreiben</h2>
+                    <textarea id="problem" className="w-full p-3 border border-slate-300 rounded-lg" placeholder="z.B. Mein Auto quietscht beim Bremsen..." value={problemText} onChange={(e) => setProblemText(e.target.value)} rows="3"></textarea>
+                </div>
+
+                <button onClick={handleSubmit} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg" disabled={isLoading || !problemText}>
+                    {isLoading ? <Spinner text="Analysiere & Suche..." /> : <span><i className="fa-solid fa-search-dollar mr-2"></i>Analyse & Werkstätten finden</span>}
+                </button>
+
+                {error && <div className="p-3 mt-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg"><p>{error}</p></div>}
+                
+                {(aiAnalysis || workshops.length > 0) && (
+                    <div className="mt-8 space-y-8 fade-in">
+                        {aiAnalysis && (
+                            <div className="p-5 bg-slate-100 border border-slate-200/80 rounded-xl">
+                                <h2 className="text-xl font-bold text-slate-800 mb-4">KI-Analyse & Kostenschätzung</h2>
+                                <div className="space-y-4">
+                                    <div><strong className="text-slate-600 block mb-1">Mögliche Ursache:</strong> <span className="text-slate-800">{aiAnalysis.possibleCause}</span></div>
+                                    <div><strong className="text-slate-600 block mb-1">Empfehlung:</strong> <span className="text-sla
