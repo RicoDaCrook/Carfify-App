@@ -1,30 +1,40 @@
+// DIAGNOSE-VERSION: Dieser Code schreibt detaillierte Logs, um den Fehler zu finden.
 export default async function handler(request, response) {
+    console.log("LOG: /api/workshops function started.");
+
     const { lat, lon } = request.query;
-    // Liest den API-Schlüssel aus den Vercel-Einstellungen.
     const mapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
 
-    // Schritt 1: Überprüfen, ob der Schlüssel auf dem Server gefunden wurde.
+    // Schritt 1: Überprüfen, ob der API-Schlüssel auf dem Server gefunden wurde.
     if (!mapsApiKey) {
-        console.error("SERVER FEHLER: GOOGLE_MAPS_API_KEY wurde in den Vercel-Einstellungen nicht gefunden.");
-        return response.status(500).json({ error: 'Server-Konfigurationsfehler', message: 'Google Maps API-Schlüssel ist auf dem Server nicht gesetzt.' });
+        console.error("SERVER ERROR: GOOGLE_MAPS_API_KEY not found in Vercel environment variables.");
+        return response.status(500).json({ message: 'Server-Konfigurationsfehler: Google Maps API-Schlüssel ist auf dem Server nicht gesetzt.' });
     }
+    console.log("LOG: Google Maps API Key found on server.");
 
     if (!lat || !lon) {
-        return response.status(400).json({ error: 'Fehlende Anfrageparameter', message: 'Latitude und Longitude sind erforderlich.' });
+        console.error("CLIENT ERROR: Latitude or Longitude missing in request.");
+        return response.status(400).json({ message: 'Latitude und Longitude sind erforderlich.' });
     }
+    console.log(`LOG: Received coordinates: lat=${lat}, lon=${lon}`);
 
     const nearbySearchUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lon}&radius=5000&type=car_repair&language=de&key=${mapsApiKey}`;
+    console.log("LOG: Calling Google Maps API with URL:", nearbySearchUrl);
+
     try {
         const searchRes = await fetch(nearbySearchUrl);
+        console.log(`LOG: Google Maps API response status: ${searchRes.status}`);
+
         const searchData = await searchRes.json();
 
         // Schritt 2: Überprüfen, ob die Anfrage an Google erfolgreich war.
         if (searchData.status !== "OK") {
-            console.error("GOOGLE MAPS API FEHLER:", searchData);
-            return response.status(500).json({ error: `Google API Fehler: ${searchData.status}`, details: searchData.error_message || 'Keine Details von Google erhalten.' });
+            console.error("GOOGLE MAPS API ERROR:", searchData);
+            return response.status(500).json({ message: `Google API Fehler: ${searchData.status}`, details: searchData.error_message || 'Keine Details von Google erhalten.' });
         }
+        console.log(`LOG: Found ${searchData.results.length} workshops.`);
 
-        const workshopDetailsPromises = searchData.results.slice(0, 6).map(async (place) => {
+        const workshopDetailsPromises = searchData.results.slice(0, 4).map(async (place) => {
             const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,rating,user_ratings_total,reviews,photo,vicinity&language=de&key=${mapsApiKey}`;
             const detailsResponse = await fetch(detailsUrl);
             const detailsData = await detailsResponse.json();
@@ -38,9 +48,11 @@ export default async function handler(request, response) {
         const workshopsWithDetails = await Promise.all(workshopDetailsPromises);
 
         // Schritt 3: Erfolgreiche Antwort senden.
+        console.log("LOG: Successfully fetched all workshop details. Sending response to client.");
         response.status(200).json(workshopsWithDetails);
+
     } catch (error) {
-        console.error("UNERWARTETER SERVER FEHLER:", error);
-        response.status(500).json({ error: 'Interner Serverfehler', details: error.message });
+        console.error("UNEXPECTED SERVER ERROR:", error);
+        response.status(500).json({ message: 'Interner Serverfehler beim Abrufen der Werkstätten', details: error.message });
     }
 }
