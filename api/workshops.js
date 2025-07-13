@@ -1,13 +1,17 @@
 export default async function handler(request, response) {
     const { lat, lon } = request.query;
-    const mapsApiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+    // KORREKTUR: Der Name des API-Schlüssels wurde geändert.
+    const mapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
+
     if (!lat || !lon) { return response.status(400).json({ error: 'Latitude and longitude are required' }); }
-    if (!mapsApiKey) { return response.status(500).json({ error: 'Google Maps API key not configured' }); }
+    if (!mapsApiKey) { return response.status(500).json({ error: 'Google Maps API key not configured on server' }); }
+
     const nearbySearchUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lon}&radius=5000&type=car_repair&language=de&key=${mapsApiKey}`;
     try {
         const searchRes = await fetch(nearbySearchUrl);
         const searchData = await searchRes.json();
         if (searchData.status !== "OK") { return response.status(500).json({ error: `Google API Error: ${searchData.status}` }); }
+
         const workshopDetailsPromises = searchData.results.slice(0, 6).map(async (place) => {
             const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,rating,user_ratings_total,reviews,photo,vicinity&language=de&key=${mapsApiKey}`;
             const detailsResponse = await fetch(detailsUrl);
