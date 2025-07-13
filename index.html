@@ -12,35 +12,103 @@
         body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
         .fade-in { animation: fadeIn 0.6s ease-in-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        .workshop-card { transition: all 0.3s ease-in-out; }
     </style>
 </head>
 <body>
-    <!-- Das ist der Ankerpunkt für unsere React-App -->
     <div id="root"></div>
 
-    <!-- Lade die React-Bibliotheken -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Lade Babel, um JSX im Browser zu übersetzen -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Der gesamte App-Code kommt jetzt hier rein -->
     <script type="text/babel">
         const { useState } = React;
 
         // Lade-Spinner Komponente
-        const Spinner = ({ text = 'Analysiere...' }) => (
+        const Spinner = ({ text }) => (
             <div className="flex items-center justify-center gap-2">
-                <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 <span>{text}</span>
             </div>
         );
 
+        // Werkstatt-Karte Komponente für echte Daten
+        function WorkshopCard({ workshop, geminiApiKey }) {
+            const [analysis, setAnalysis] = useState(null);
+            const [isAnalyzing, setIsAnalyzing] = useState(false);
+            const [error, setError] = useState('');
+
+            const handleAnalyzeReviews = async () => {
+                if (!workshop.reviews || workshop.reviews.length === 0) {
+                    setError("Für diese Werkstatt liegen keine Rezensionen vor.");
+                    return;
+                }
+                setIsAnalyzing(true);
+                setError('');
+                setAnalysis(null);
+                try {
+                    const reviewText = workshop.reviews.map(r => `- "${r.text}"`).join('\n');
+                    const prompt = `Analysiere die folgenden Kundenrezensionen für eine Autowerkstatt. Erstelle eine strukturierte Zusammenfassung im JSON-Format. Das JSON-Objekt muss exakt diese Struktur haben: {"summary": "Eine kurze Gesamtzusammenfassung in 2-3 Sätzen.","pros": ["Ein positiver Punkt, z.B. 'Schneller Service'"], "cons": ["Ein negativer Punkt, z.B. 'Teurer als erwartet'"]}. Hier sind die Rezensionen: ${reviewText}`;
+                    const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
+                    const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!response.ok) throw new Error(`API Fehler (${response.status})`);
+                    const result = await response.json();
+                    if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
+                        const textResponse = result.candidates[0].content.parts[0].text;
+                        const cleanedJsonString = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+                        const parsedAnalysis = JSON.parse(cleanedJsonString);
+                        setAnalysis(parsedAnalysis);
+                    } else { throw new Error('Unerwartetes Antwortformat von der KI.'); }
+                } catch (err) {
+                    setError('Analyse fehlgeschlagen. ' + err.message);
+                } finally {
+                    setIsAnalyzing(false);
+                }
+            };
+
+            return (
+                <div className="bg-white p-4 rounded-lg border border-slate-200/80 shadow-sm hover:shadow-lg hover:border-blue-500 workshop-card">
+                    <div className="flex gap-4">
+                        <img src={workshop.photoUrl} alt={workshop.name} className="w-24 h-24 rounded-md object-cover bg-slate-100" onError={(e) => e.target.src='https://placehold.co/400x400/94a3b8/ffffff?text=Carfify'}/>
+                        <div className="flex-1">
+                            <h3 className="font-bold text-slate-900">{workshop.name}</h3>
+                            <p className="text-sm text-slate-500 mt-1"><i className="fa-solid fa-location-dot mr-2 text-slate-400"></i>{workshop.vicinity}</p>
+                            <div className="text-sm text-slate-600 mt-1 flex items-center gap-2">
+                                <span className="font-bold text-amber-500">{workshop.rating}</span>
+                                <i className="fa-solid fa-star text-amber-500"></i>
+                                <span>({workshop.user_ratings_total} Bewertungen)</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="mt-4">
+                        {isAnalyzing ? (
+                            <div className="w-full bg-slate-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center"><Spinner text="Analysiere Rezensionen..." /></div>
+                        ) : (
+                            <button onClick={handleAnalyzeReviews} className="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 px-4 rounded-lg transition duration-300 text-sm" disabled={!geminiApiKey}><i className="fa-solid fa-wand-magic-sparkles mr-2"></i>KI-Analyse der Rezensionen</button>
+                        )}
+                    </div>
+                    {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
+                    {analysis && (
+                        <div className="mt-4 pt-4 border-t border-slate-200 fade-in">
+                            <h4 className="font-semibold text-slate-700 mb-2">KI-Zusammenfassung:</h4>
+                            <p className="text-sm text-slate-600 italic mb-3">"{analysis.summary}"</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div><h5 className="font-semibold text-green-600 flex items-center"><i className="fa-solid fa-circle-plus mr-2"></i>Pro</h5><ul className="list-disc list-inside text-slate-600 mt-1">{analysis.pros.map((pro, i) => <li key={i}>{pro}</li>)}</ul></div>
+                                <div><h5 className="font-semibold text-red-600 flex items-center"><i className="fa-solid fa-circle-minus mr-2"></i>Contra</h5><ul className="list-disc list-inside text-slate-600 mt-1">{analysis.cons.map((con, i) => <li key={i}>{con}</li>)}</ul></div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
         // Haupt-App-Komponente
         function App() {
+            const geminiApiKey = "AIzaSyBa_7k0olAun0ouXLy_kK7JqbaHmlznTzs";
+            const mapsApiKey = "AIzaSyAdwCggfocKhbHrkkAm9RTY9bZ8EPBPiA4";
+            
             const [hsn, setHsn] = useState('');
             const [tsn, setTsn] = useState('');
             const [problemText, setProblemText] = useState('');
@@ -49,24 +117,18 @@
             const [aiAnalysis, setAiAnalysis] = useState(null);
             const [isLoading, setIsLoading] = useState(false);
             const [error, setError] = useState('');
-            const [showResults, setShowResults] = useState(false);
+            const [workshops, setWorkshops] = useState([]);
 
             const handleFindVehicle = async () => {
-                const vehicleDatabase = {
-                    "0603-BJM": { name: "VW Golf VIII 2.0 TDI", ps: "150 PS", year: "2019-heute", imageUrl: "https://placehold.co/600x400/e0e0e0/000000?text=VW+Golf+VIII" },
-                    "0005-CKY": { name: "BMW 3er (G20) 320d", ps: "190 PS", year: "2018-heute", imageUrl: "https://placehold.co/600x400/e0e0e0/000000?text=BMW+3er+(G20)" },
-                };
+                const vehicleDatabase = { "0603-BJM": { name: "VW Golf VIII 2.0 TDI", ps: "150 PS", year: "2019-heute", imageUrl: "https://placehold.co/600x400/e0e0e0/000000?text=VW+Golf+VIII" }};
                 setIsFindingVehicle(true);
                 setFoundVehicle(null);
                 setError('');
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 const key = `${hsn}-${tsn.toUpperCase()}`;
                 const vehicle = vehicleDatabase[key];
-                if (vehicle) {
-                    setFoundVehicle(vehicle);
-                } else {
-                    setError('Fahrzeug nicht gefunden. Bitte prüfen Sie die HSN/TSN.');
-                }
+                if (vehicle) { setFoundVehicle(vehicle); } 
+                else { setError('Fahrzeug nicht gefunden. Bitte prüfen Sie die HSN/TSN.'); }
                 setIsFindingVehicle(false);
             };
 
@@ -77,67 +139,123 @@
                 }
                 setIsLoading(true);
                 setAiAnalysis(null);
+                setWorkshops([]);
                 setError('');
-                setShowResults(false);
-                try {
-                    const vehicleInfo = foundVehicle ? `User's car model: "${foundVehicle.name}"` : "User's car model: Not specified.";
-                    const prompt = `Analyze the following car problem and provide a structured JSON response. Do not include any text outside of the JSON object. ${vehicleInfo} User's problem description: "${problemText}" Your JSON output must follow this exact schema: {"possibleCause": "A brief, clear explanation of the likely cause.","recommendation": "What the user should do next.","urgency": "Rate the urgency as 'Niedrig', 'Mittel', or 'Hoch'.","estimatedLabor": 2.5,"likelyRequiredParts": ["Bremsscheiben vorne", "Bremsbeläge vorne"],"estimatedPartsCost": 150}`;
-                    const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
-                    const apiKey = "";
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-                    const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                    if (!response.ok) throw new Error(`API-Fehler: ${response.status}.`);
-                    const result = await response.json();
-                    if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
-                        const textResponse = result.candidates[0].content.parts[0].text;
-                        const cleanedJsonString = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-                        const parsedAnalysis = JSON.parse(cleanedJsonString);
-                        setAiAnalysis(parsedAnalysis);
-                        setShowResults(true);
-                    } else {
-                        throw new Error('Die KI-Antwort hatte ein unerwartetes Format.');
+
+                navigator.geolocation.getCurrentPosition(async (position) => {
+                    const { latitude, longitude } = position.coords;
+                    try {
+                        const [aiResult, workshopsResult] = await Promise.all([
+                            fetchAiAnalysis(),
+                            fetchWorkshops(latitude, longitude)
+                        ]);
+                        setAiAnalysis(aiResult);
+                        setWorkshops(workshopsResult);
+                    } catch (err) {
+                        setError("Ein Fehler ist aufgetreten: " + err.message);
+                    } finally {
+                        setIsLoading(false);
                     }
-                } catch (err) {
-                    console.error("Error during analysis:", err);
-                    setError(`Ein Fehler ist aufgetreten: ${err.message}.`);
-                } finally {
+                }, (err) => {
+                    setError("Standort konnte nicht abgerufen werden. Bitte erteilen Sie die Erlaubnis, um Werkstätten zu finden.");
                     setIsLoading(false);
-                }
+                });
+            };
+
+            const fetchAiAnalysis = async () => {
+                const vehicleInfo = foundVehicle ? `User's car model: "${foundVehicle.name}"` : "User's car model: Not specified.";
+                const prompt = `Analysiere das folgende Autoproblem. Erstelle eine strukturierte JSON-Antwort mit den folgenden Feldern: "possibleCause", "recommendation", "urgency" ('Niedrig', 'Mittel', 'Hoch'), "estimatedLabor" (in Stunden), "likelyRequiredParts" (als Array), "diyTips" (ein Array mit 1-2 kurzen Tipps für Selbermacher) und "youtubeSearchQuery" (ein prägnanter Suchbegriff für ein YouTube-Tutorial). Problem: "${problemText}", Fahrzeug: ${vehicleInfo}`;
+                const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!response.ok) throw new Error(`Gemini API Fehler: ${response.status}`);
+                const result = await response.json();
+                if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
+                    const textResponse = result.candidates[0].content.parts[0].text;
+                    const cleanedJsonString = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+                    return JSON.parse(cleanedJsonString);
+                } else { throw new Error('Unerwartetes Antwortformat von der KI.'); }
+            };
+
+            const fetchWorkshops = async (latitude, longitude) => {
+                const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+                const nearbySearchUrl = `${proxyUrl}https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=5000&type=car_repair&language=de&key=${mapsApiKey}`;
+                const response = await fetch(nearbySearchUrl);
+                const data = await response.json();
+                if (data.status !== "OK") throw new Error(`Google API Fehler: ${data.status}`);
+                
+                const workshopDetailsPromises = data.results.slice(0, 4).map(async (place) => {
+                    const detailsUrl = `${proxyUrl}https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,rating,user_ratings_total,reviews,photo,vicinity&language=de&key=${mapsApiKey}`;
+                    const detailsResponse = await fetch(detailsUrl);
+                    const detailsData = await detailsResponse.json();
+                    let photoUrl = 'https://placehold.co/400x400/94a3b8/ffffff?text=Carfify';
+                    if (detailsData.result.photos && detailsData.result.photos.length > 0) {
+                        const photoReference = detailsData.result.photos[0].photo_reference;
+                        photoUrl = `${proxyUrl}https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photoReference}&key=${mapsApiKey}`;
+                    }
+                    return { ...detailsData.result, photoUrl };
+                });
+                return await Promise.all(workshopDetailsPromises);
             };
 
             return (
                 <div className="min-h-screen p-4 md:p-8 flex justify-center items-start">
                     <div className="bg-white p-6 md:p-8 rounded-2xl shadow-lg shadow-slate-200/50 w-full max-w-4xl border border-slate-200/80">
-                        <header className="text-center mb-8">
-                            <img src="logo.png" alt="Carfify Logo" className="mx-auto h-24 w-auto" />
-                        </header>
+                        <header className="text-center mb-8"><img src="logo.png" alt="Carfify Logo" className="mx-auto h-24 w-auto" /></header>
+                        
                         <div className="p-5 bg-slate-50 border border-slate-200/80 rounded-xl mb-6">
                             <h2 className="text-lg font-bold text-slate-800 mb-3">1. Fahrzeug identifizieren <span className="text-sm font-normal text-slate-500">(Optional)</span></h2>
                             <div className="flex flex-col sm:flex-row items-start gap-4">
-                                <div className="w-full sm:w-auto flex-1"><label htmlFor="hsn" className="block text-slate-700 text-sm font-semibold mb-1">HSN</label><input type="text" id="hsn" maxLength="4" className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500" placeholder="z.B. 0603" value={hsn} onChange={(e) => setHsn(e.target.value)} /></div>
-                                <div className="w-full sm:w-auto flex-1"><label htmlFor="tsn" className="block text-slate-700 text-sm font-semibold mb-1">TSN</label><input type="text" id="tsn" maxLength="3" className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500" placeholder="z.B. BJM" value={tsn} onChange={(e) => setTsn(e.target.value.toUpperCase())} /></div>
-                                <div className="w-full sm:w-auto self-end"><button onClick={handleFindVehicle} disabled={isFindingVehicle || hsn.length !== 4 || tsn.length !== 3} className="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 px-4 rounded-lg transition disabled:bg-slate-400 flex items-center justify-center gap-2"><i className="fa-solid fa-search"></i> <span>Finden</span></button></div>
+                                <div className="w-full sm:w-auto flex-1"><label htmlFor="hsn" className="block text-slate-700 text-sm font-semibold mb-1">HSN</label><input type="text" id="hsn" maxLength="4" className="w-full p-2 border border-slate-300 rounded-lg" placeholder="z.B. 0603" value={hsn} onChange={(e) => setHsn(e.target.value)} /></div>
+                                <div className="w-full sm:w-auto flex-1"><label htmlFor="tsn" className="block text-slate-700 text-sm font-semibold mb-1">TSN</label><input type="text" id="tsn" maxLength="3" className="w-full p-2 border border-slate-300 rounded-lg" placeholder="z.B. BJM" value={tsn} onChange={(e) => setTsn(e.target.value.toUpperCase())} /></div>
+                                <div className="w-full sm:w-auto self-end"><button onClick={handleFindVehicle} disabled={isFindingVehicle} className="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 px-4 rounded-lg transition disabled:bg-slate-400 flex items-center justify-center gap-2">{isFindingVehicle ? <Spinner text="Suchen..."/> : <><i className="fa-solid fa-search"></i> <span>Finden</span></>}</button></div>
                             </div>
                         </div>
-                        {error && <div className="p-3 mb-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg"><p>{error}</p></div>}
                         {foundVehicle && (
-                            <div className="p-5 mb-6 bg-blue-50 border border-blue-200 rounded-xl">
+                            <div className="p-5 mb-6 bg-blue-50 border border-blue-200 rounded-xl fade-in">
                                 <div className="flex flex-col sm:flex-row items-center gap-4">
                                     <img src={foundVehicle.imageUrl} onError={(e) => e.target.src='https://placehold.co/600x400/e0e0e0/000000?text=Bild+fehlt'} alt={foundVehicle.name} className="w-32 h-auto rounded-lg bg-white object-cover" />
                                     <div><p className="font-bold text-lg text-slate-800">{foundVehicle.name}</p><p className="text-sm text-slate-600">Leistung: {foundVehicle.ps}</p><p className="text-sm text-slate-600">Bauzeitraum: {foundVehicle.year}</p></div>
                                 </div>
                             </div>
                         )}
+
                         <div className="p-5 bg-slate-50 border border-slate-200/80 rounded-xl mb-6">
                             <h2 className="text-lg font-bold text-slate-800 mb-3">2. Problem beschreiben</h2>
-                            <textarea id="problem" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500" placeholder="z.B. Mein Auto macht vorne rechts ein schleifendes Geräusch beim Lenken..." value={problemText} onChange={(e) => setProblemText(e.target.value)} rows="3"></textarea>
+                            <textarea id="problem" className="w-full p-3 border border-slate-300 rounded-lg" placeholder="z.B. Mein Auto quietscht beim Bremsen..." value={problemText} onChange={(e) => setProblemText(e.target.value)} rows="3"></textarea>
                         </div>
-                        <button onClick={handleSubmit} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 ease-in-out transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-blue-400 disabled:scale-100 flex items-center justify-center gap-2" disabled={isLoading || !problemText}>
-                            {isLoading ? <Spinner /> : <span><i className="fa-solid fa-microchip mr-2"></i>Analyse & Kostenschätzung starten</span>}
+
+                        <button onClick={handleSubmit} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg" disabled={isLoading || !problemText}>
+                            {isLoading ? <Spinner text="Analysiere & Suche..." /> : <span><i className="fa-solid fa-search-dollar mr-2"></i>Analyse & Werkstätten finden</span>}
                         </button>
-                        {showResults && aiAnalysis && (
-                            <div className="mt-8 space-y-6">
-                                <p>Analyse erfolgreich! (Hier würden die Ergebnisse angezeigt)</p>
+
+                        {error && <div className="p-3 mt-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg"><p>{error}</p></div>}
+                        
+                        {(aiAnalysis || workshops.length > 0) && (
+                            <div className="mt-8 space-y-8 fade-in">
+                                {aiAnalysis && (
+                                    <div className="p-5 bg-slate-100 border border-slate-200/80 rounded-xl">
+                                        <h2 className="text-xl font-bold text-slate-800 mb-4">KI-Problemanalyse</h2>
+                                        <div className="space-y-3 text-slate-700">
+                                            <p><strong>Mögliche Ursache:</strong> {aiAnalysis.possibleCause}</p>
+                                            <p><strong>Empfehlung:</strong> {aiAnalysis.recommendation}</p>
+                                            <div><strong>Für Selbermacher:</strong>
+                                                <ul className="list-disc list-inside ml-4 mt-1 text-sm">
+                                                    {aiAnalysis.diyTips.map((tip, i) => <li key={i}>{tip}</li>)}
+                                                    <li><a href={`https://www.youtube.com/results?search_query=${encodeURIComponent(aiAnalysis.youtubeSearchQuery)}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Passende YouTube-Tutorials ansehen <i className="fa-solid fa-arrow-up-right-from-square text-xs"></i></a></li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                                {workshops.length > 0 && (
+                                    <div>
+                                        <h2 className="text-xl font-bold text-slate-800 mb-4">Passende Werkstätten in deiner Nähe</h2>
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                            {workshops.map(shop => <WorkshopCard key={shop.place_id} workshop={shop} geminiApiKey={geminiApiKey} />)}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -145,7 +263,6 @@
             );
         }
 
-        // Der "Zündschlüssel", der die App startet
         const container = document.getElementById('root');
         const root = ReactDOM.createRoot(container);
         root.render(<App />);
