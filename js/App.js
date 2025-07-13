@@ -22,7 +22,12 @@ function InteractiveDiagnosis({ initialProblem, vehicleInfo, onDiagnosisComplete
             const response = await fetch('/api/diagnose', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ history: newHistory || history }) });
             if (!response.ok) { const errorText = await response.text(); try { const errorJson = JSON.parse(errorText); throw new Error(errorJson.message || `Dialog-API Fehler (${response.status})`); } catch (e) { throw new Error(`Server-Fehler (${response.status}): ${errorText}`); } }
             const data = await response.json();
-            if (data.finalDiagnosis) { onDiagnosisComplete(data.finalDiagnosis); } else if (data.nextQuestion) { setCurrentQuestion(data.nextQuestion); setCurrentAnswers(data.answers); } else { throw new Error("Unerwartete Antwort von der KI erhalten."); }
+            if (data.finalDiagnosis) {
+                onDiagnosisComplete(data.finalDiagnosis);
+            } else if (data.nextQuestion) {
+                setCurrentQuestion(data.nextQuestion);
+                setCurrentAnswers(data.answers);
+            } else { throw new Error("Unerwartete Antwort von der KI erhalten."); }
         } catch (err) { setError('Fehler im Dialog: ' + err.message); } finally { setIsLoading(false); }
     };
 
@@ -32,14 +37,18 @@ function InteractiveDiagnosis({ initialProblem, vehicleInfo, onDiagnosisComplete
         fetchNextStep(updatedHistory);
     };
 
-    return ( <div className="p-5 bg-slate-100 border border-slate-200/80 rounded-xl"><h2 className="text-xl font-bold text-slate-800 mb-4">Interaktive Diagnose</h2><div className="space-y-4"><div className="p-4 bg-white rounded-lg min-h-[6rem] flex items-center"><p className="text-slate-700 font-semibold">{displayedQuestion}</p>{isLoading && <Spinner text="KI denkt nach..." />}</div>{!isLoading && currentAnswers.length > 0 && ( <div className="flex flex-wrap gap-2 justify-center">{currentAnswers.map((answer, i) => ( <button key={i} onClick={() => handleAnswerClick(answer)} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition">{answer}</button> ))}</div> )}<div ref={endOfChatRef} />{error && <p className="text-sm text-red-500 text-center">{error}</p>}</div></div> );
+    return ( <div className="p-5 bg-slate-100 border border-slate-200/80 rounded-xl mt-6"><h2 className="text-xl font-bold text-slate-800 mb-4">Interaktive Diagnose</h2><div className="space-y-4"><div className="p-4 bg-white rounded-lg min-h-[6rem] flex items-center"><p className="text-slate-700 font-semibold">{displayedQuestion}</p>{isLoading && <Spinner text="KI denkt nach..." />}</div>{!isLoading && currentAnswers.length > 0 && ( <div className="flex flex-wrap gap-2 justify-center">{currentAnswers.map((answer, i) => ( <button key={i} onClick={() => handleAnswerClick(answer)} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition">{answer}</button> ))}</div> )}<div ref={endOfChatRef} />{error && <p className="text-sm text-red-500 text-center">{error}</p>}</div></div> );
 }
+
+// Werkstatt-Karte Komponente
+function WorkshopCard({ workshop }) { /* ... unverändert ... */ }
 
 // Haupt-App-Komponente
 function App() {
     const [hsn, setHsn] = useState(''); const [tsn, setTsn] = useState(''); const [problemText, setProblemText] = useState(''); const [foundVehicle, setFoundVehicle] = useState(null); const [isFindingVehicle, setIsFindingVehicle] = useState(false); const [aiAnalysis, setAiAnalysis] = useState(null); const [isLoading, setIsLoading] = useState(false); const [error, setError] = useState(''); const [workshops, setWorkshops] = useState([]); const [startInteractive, setStartInteractive] = useState(false);
 
     const handleFindVehicle = async () => { /* ... unverändert ... */ };
+
     const handleSubmit = async () => {
         if (!problemText.trim()) { setError('Bitte beschreiben Sie zuerst Ihr Problem.'); return; }
         setIsLoading(true); setAiAnalysis(null); setWorkshops([]); setError('');
@@ -49,10 +58,19 @@ function App() {
                 const [aiResult, workshopsResult] = await Promise.all([fetchAiAnalysis(), fetchWorkshops(latitude, longitude)]);
                 setAiAnalysis(aiResult); setWorkshops(workshopsResult);
             } catch (err) { setError("Ein Fehler ist aufgetreten: " + err.message); } finally { setIsLoading(false); }
-        }, (err) => { setError("Standort konnte nicht abgerufen werden."); setIsLoading(false); });
+        }, (err) => { setError("Standort konnte nicht abgerufen werden. Bitte erteilen Sie die Erlaubnis, um Werkstätten zu finden."); setIsLoading(false); });
     };
-    const fetchAiAnalysis = async () => { /* ... unverändert ... */ };
+
+    const fetchAiAnalysis = async () => {
+        const vehicleInfo = foundVehicle ? `User's car model: "${foundVehicle.name}"` : "User's car model: Not specified.";
+        const prompt = `Analysiere das folgende Autoproblem. Erstelle eine strukturierte JSON-Antwort. Das JSON muss die Felder "possibleCauses" (als Array von Strings, die als Stichpunkte formatiert sind), "recommendation" (als String), "urgency" ('Niedrig', 'Mittel', 'Hoch'), "estimatedLabor" (als Zahl), "estimatedPartsCost" (als Zahl), "likelyRequiredParts" (als Array von Strings), "diyTips" (als Array von Strings) und "youtubeSearchQuery" (als String) enthalten. Problem: "${problemText}", Fahrzeug: ${vehicleInfo}`;
+        const response = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) });
+        if (!response.ok) { const errorData = await response.json().catch(() => ({ message: 'Unbekannter Problem-Analyse-Fehler' })); throw new Error(errorData.message || `Problem-Analyse API Fehler (${response.status})`); }
+        return await response.json();
+    };
+
     const fetchWorkshops = async (latitude, longitude) => { /* ... unverändert ... */ };
+
     const calculateCost = (analysis) => { /* ... unverändert ... */ };
     const estimatedCost = calculateCost(aiAnalysis);
 
@@ -62,12 +80,17 @@ function App() {
                 <header className="text-center mb-8"><img src="/logo.png" alt="Carfify Logo" className="mx-auto h-24 w-auto" /></header>
                 {error && <div className="p-3 mb-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg"><p>{error}</p></div>}
 
-                {!aiAnalysis && !startInteractive && (
-                    <div>
+                {!aiAnalysis && (
+                    <div className="fade-in">
                         <div className="p-5 bg-slate-50 border rounded-xl mb-6">
                             <h2 className="text-lg font-bold text-slate-800 mb-3">1. Fahrzeug identifizieren <span className="text-sm font-normal text-slate-500">(Optional)</span></h2>
-                            {/* HSN/TSN Inputs hier... */}
+                            <div className="flex flex-col sm:flex-row items-start gap-4">
+                                <div className="w-full sm:w-auto flex-1"><label htmlFor="hsn" className="block text-slate-700 text-sm font-semibold mb-1">HSN</label><input type="text" id="hsn" maxLength="4" className="w-full p-2 border border-slate-300 rounded-lg" placeholder="z.B. 0603" value={hsn} onChange={(e) => setHsn(e.target.value)} /></div>
+                                <div className="w-full sm:w-auto flex-1"><label htmlFor="tsn" className="block text-slate-700 text-sm font-semibold mb-1">TSN</label><input type="text" id="tsn" maxLength="3" className="w-full p-2 border border-slate-300 rounded-lg" placeholder="z.B. BJM" value={tsn} onChange={(e) => setTsn(e.target.value.toUpperCase())} /></div>
+                                <div className="w-full sm:w-auto self-end"><button onClick={handleFindVehicle} disabled={isFindingVehicle} className="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 px-4 rounded-lg transition disabled:bg-slate-400 flex items-center justify-center gap-2">{isFindingVehicle ? <Spinner text="Suchen..."/> : <><i className="fa-solid fa-search"></i> <span>Finden</span></>}</button></div>
+                            </div>
                         </div>
+                        {foundVehicle && ( <div className="p-5 mb-6 bg-blue-50 border border-blue-200 rounded-xl fade-in">...</div> )}
                         <div className="p-5 bg-slate-50 border rounded-xl mb-6">
                             <h2 className="text-lg font-bold text-slate-800 mb-3">2. Problem beschreiben</h2>
                             <textarea id="problem" className="w-full p-3 border rounded-lg" value={problemText} onChange={(e) => setProblemText(e.target.value)} rows="4"></textarea>
@@ -78,28 +101,40 @@ function App() {
                     </div>
                 )}
 
-                {aiAnalysis && !startInteractive && (
+                {aiAnalysis && (
                     <div className="fade-in">
+                        {!foundVehicle && <div className="p-4 mb-6 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded-lg"><h3 className="font-bold"><i className="fa-solid fa-triangle-exclamation mr-2"></i>Hinweis zur Genauigkeit</h3><p className="text-sm">Für eine präzisere Analyse, identifizieren Sie bitte Ihr Fahrzeug.</p></div>}
                         <div className="p-5 bg-slate-100 border rounded-xl">
                             <h2 className="text-xl font-bold text-slate-800 mb-4">KI-Analyse & Kostenschätzung</h2>
-                            {/* Detaillierte Analyse-Anzeige hier... */}
-                            <button onClick={() => setStartInteractive(true)} className="mt-4 w-full bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 px-4 rounded-lg">
-                                <i className="fa-solid fa-comments mr-2"></i>Interaktive Diagnose zur Verfeinerung starten
-                            </button>
+                            <div className="space-y-4">
+                                {aiAnalysis.possibleCauses && <div><strong className="text-slate-600 block mb-1">Mögliche Ursachen:</strong><ul className="list-disc list-inside ml-4 mt-1 text-slate-800"> {aiAnalysis.possibleCauses.map((cause, i) => <li key={i}>{cause}</li>)} </ul></div>}
+                                {/* ... weitere Analyse-Details ... */}
+                                <div className="!mt-6 p-4 bg-blue-50 border rounded-lg text-center">
+                                    {/* ... Kostenschätzung ... */}
+                                </div>
+                                {/* ... DIY-Tipps ... */}
+                            </div>
+                            {!startInteractive && (
+                                <div className="mt-6 pt-4 border-t">
+                                    <p className="text-sm text-center text-slate-600 mb-2">Um das Problem weiter einzugrenzen, können wir eine interaktive Diagnose starten.</p>
+                                    <button onClick={() => setStartInteractive(true)} className="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 px-4 rounded-lg">
+                                        <i className="fa-solid fa-comments mr-2"></i>Interaktive Diagnose starten
+                                    </button>
+                                </div>
+                            )}
                         </div>
-                        {/* Werkstatt-Anzeige hier... */}
+                        {startInteractive && (
+                            <InteractiveDiagnosis 
+                                initialProblem={problemText} 
+                                vehicleInfo={foundVehicle ? foundVehicle.name : 'Nicht angegeben'}
+                                onDiagnosisComplete={(finalDiagnosis) => {
+                                    setAiAnalysis(prev => ({ ...prev, possibleCauses: [finalDiagnosis] })); // Update der Analyse
+                                    setStartInteractive(false);
+                                }}
+                            />
+                        )}
+                        {workshops.length > 0 && ( <div>...</div> )}
                     </div>
-                )}
-
-                {startInteractive && (
-                    <InteractiveDiagnosis 
-                        initialProblem={problemText} 
-                        vehicleInfo={foundVehicle ? foundVehicle.name : 'Nicht angegeben'}
-                        onDiagnosisComplete={(finalDiagnosis) => {
-                            setAiAnalysis(prev => ({ ...prev, possibleCause: finalDiagnosis }));
-                            setStartInteractive(false);
-                        }}
-                    />
                 )}
             </div>
         </div>
