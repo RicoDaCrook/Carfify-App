@@ -1,9 +1,9 @@
 export default async function handler(request, response) {
     if (request.method !== 'POST') { return response.status(405).json({ error: 'Method Not Allowed' }); }
-    // KORREKTUR: Der Name des API-Schlüssels wurde geändert.
-    const geminiApiKey = process.env.GEMINI_API_KEY;
+    // FINALE KORREKTUR: Prüft jetzt auf beide möglichen Namen für den API-Schlüssel.
+    const geminiApiKey = process.env.GEMINI_API_KEY || process.env.REACT_APP_GEMINI_API_KEY;
 
-    if (!geminiApiKey) { return response.status(500).json({ error: 'Gemini API key not configured on server' }); }
+    if (!geminiApiKey) { return response.status(500).json({ error: 'Gemini API key not configured on server. Please check Vercel settings.' }); }
     try {
         const { prompt } = request.body;
         if (!prompt) { return response.status(400).json({ error: 'Prompt is required' }); }
