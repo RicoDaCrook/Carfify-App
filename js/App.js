@@ -4,7 +4,7 @@
 
 // -----------------------------------------------------------------------------
 // FILE TO UPDATE: /js/App.js
-// (This is the main React component with the restored UI)
+// (This is the main React component with defensive rendering to prevent crashes)
 // -----------------------------------------------------------------------------
 /*
 const { useState } = React;
@@ -59,7 +59,14 @@ function WorkshopCard({ workshop }) {
                 {isAnalyzing ? ( <div className="w-full bg-slate-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center"><Spinner text="Analysiere Rezensionen..." /></div> ) : ( <button onClick={handleAnalyzeReviews} className="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 px-4 rounded-lg transition duration-300 text-sm"><i className="fa-solid fa-wand-magic-sparkles mr-2"></i>KI-Analyse der Rezensionen</button> )}
             </div>
             {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
-            {analysis && ( <div className="mt-4 pt-4 border-t border-slate-200 fade-in"><h4 className="font-semibold text-slate-700 mb-2">KI-Zusammenfassung:</h4><p className="text-sm text-slate-600 italic mb-3">"{analysis.summary}"</p><div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm"><div><h5 className="font-semibold text-green-600 flex items-center"><i className="fa-solid fa-circle-plus mr-2"></i>Pro</h5><ul className="list-disc list-inside text-slate-600 mt-1">{analysis.pros.map((pro, i) => <li key={i}>{pro}</li>)}</ul></div><div><h5 className="font-semibold text-red-600 flex items-center"><i className="fa-solid fa-circle-minus mr-2"></i>Contra</h5><ul className="list-disc list-inside text-slate-600 mt-1">{analysis.cons.map((con, i) => <li key={i}>{con}</li>)}</ul></div></div></div> )}
+            {analysis && ( <div className="mt-4 pt-4 border-t border-slate-200 fade-in">
+                <h4 className="font-semibold text-slate-700 mb-2">KI-Zusammenfassung:</h4>
+                {analysis.summary && <p className="text-sm text-slate-600 italic mb-3">"{analysis.summary}"</p>}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    {analysis.pros && analysis.pros.length > 0 && <div><h5 className="font-semibold text-green-600 flex items-center"><i className="fa-solid fa-circle-plus mr-2"></i>Pro</h5><ul className="list-disc list-inside text-slate-600 mt-1">{analysis.pros.map((pro, i) => <li key={i}>{pro}</li>)}</ul></div>}
+                    {analysis.cons && analysis.cons.length > 0 && <div><h5 className="font-semibold text-red-600 flex items-center"><i className="fa-solid fa-circle-minus mr-2"></i>Contra</h5><ul className="list-disc list-inside text-slate-600 mt-1">{analysis.cons.map((con, i) => <li key={i}>{con}</li>)}</ul></div>}
+                </div>
+            </div> )}
         </div>
     );
 }
@@ -149,5 +156,53 @@ function App() {
                             <div className="p-5 bg-slate-100 border border-slate-200/80 rounded-xl">
                                 <h2 className="text-xl font-bold text-slate-800 mb-4">KI-Analyse & Kostenschätzung</h2>
                                 <div className="space-y-4">
-                                    <div><strong className="text-slate-600 block mb-1">Mögliche Ursache:</strong> <span className="text-slate-800">{aiAnalysis.possibleCause}</span></div>
-                                    <div><strong className="text-slate-600 block mb-1">Empfehlung:</strong> <span className="text-sla
+                                    {aiAnalysis.possibleCause && <div><strong className="text-slate-600 block mb-1">Mögliche Ursache:</strong> <span className="text-slate-800">{aiAnalysis.possibleCause}</span></div>}
+                                    {aiAnalysis.recommendation && <div><strong className="text-slate-600 block mb-1">Empfehlung:</strong> <span className="text-slate-800">{aiAnalysis.recommendation}</span></div>}
+                                    {aiAnalysis.urgency && <div><strong className="text-slate-600">Dringlichkeit:</strong> <span className={`font-bold px-2 py-0.5 rounded-full text-sm ${aiAnalysis.urgency === 'Hoch' ? 'bg-red-100 text-red-800' : aiAnalysis.urgency === 'Mittel' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>{aiAnalysis.urgency}</span></div>}
+                                    
+                                    {aiAnalysis.likelyRequiredParts && aiAnalysis.likelyRequiredParts.length > 0 && 
+                                        <div><strong className="text-slate-600 block mb-1">Benötigte Teile (Vorschläge):</strong> 
+                                            <div className="flex flex-wrap gap-2 mt-1">
+                                                {aiAnalysis.likelyRequiredParts.map(part => (<a key={part} href={`https://www.autodoc.de/search?keyword=${encodeURIComponent(part)}`} target="_blank" rel="noopener noreferrer" className="text-sm bg-slate-200 hover:bg-slate-300 text-slate-800 px-2 py-1 rounded-md transition">{part} <i className="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>))}
+                                            </div>
+                                        </div>
+                                    }
+                                    
+                                    {aiAnalysis.estimatedLabor && aiAnalysis.estimatedPartsCost &&
+                                        <div className="!mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-center">
+                                            <p className="text-slate-600">Geschätzte Reparaturkosten:</p>
+                                            <p className="text-3xl font-bold text-blue-600">ca. {estimatedCost.min} - {estimatedCost.max} €</p>
+                                            <p className="text-xs text-slate-500 mt-1">Basiert auf geschätzter Arbeitszeit ({aiAnalysis.estimatedLabor}h) und Teilekosten.</p>
+                                        </div>
+                                    }
+
+                                    {aiAnalysis.diyTips && aiAnalysis.diyTips.length > 0 &&
+                                        <div><strong>Für Selbermacher:</strong>
+                                            <ul className="list-disc list-inside ml-4 mt-1 text-sm text-slate-700">
+                                                {aiAnalysis.diyTips.map((tip, i) => <li key={i}>{tip}</li>)}
+                                                {aiAnalysis.youtubeSearchQuery && <li><a href={`https://www.youtube.com/results?search_query=${encodeURIComponent(aiAnalysis.youtubeSearchQuery)}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Passende YouTube-Tutorials ansehen <i className="fa-solid fa-arrow-up-right-from-square text-xs"></i></a></li>}
+                                            </ul>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        )}
+                        {workshops.length > 0 && (
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-800 mb-4">Passende Werkstätten in deiner Nähe</h2>
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    {workshops.map(shop => <WorkshopCard key={shop.place_id} workshop={shop} />)}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div> 
+    );
+}
+
+const container = document.getElementById('root');
+const root = ReactDOM.createRoot(container);
+root.render(<App />);
+*/
