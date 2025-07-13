@@ -59,16 +59,28 @@ function InteractiveDiagnosis({ initialProblem, vehicleInfo, onDiagnosisComplete
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ history: newHistory || history })
             });
+
+            // Verbesserte Fehlerbehandlung
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Dialog-API Fehler');
+                const errorText = await response.text();
+                let errorJson = {};
+                try {
+                    errorJson = JSON.parse(errorText);
+                    throw new Error(errorJson.message || `Dialog-API Fehler (${response.status})`);
+                } catch (e) {
+                    // Wenn das Parsen fehlschlägt, war die Antwort kein JSON. Zeige den rohen Text an.
+                    throw new Error(`Server-Fehler (${response.status}): ${errorText}`);
+                }
             }
+
             const data = await response.json();
             if (data.finalDiagnosis) {
                 onDiagnosisComplete(data.finalDiagnosis);
             } else if (data.nextQuestion) {
                 setCurrentQuestion(data.nextQuestion);
                 setCurrentAnswers(data.answers);
+            } else {
+                throw new Error("Unerwartete Antwort von der KI erhalten.");
             }
         } catch (err) {
             setError('Fehler im Dialog: ' + err.message);
@@ -175,7 +187,7 @@ function App() {
                     <div className="p-5 bg-green-50 border border-green-200 rounded-xl fade-in">
                         <h2 className="text-xl font-bold text-green-800 mb-4">Finale KI-Diagnose</h2>
                         <p className="text-slate-700 whitespace-pre-wrap">{finalDiagnosis}</p>
-                        <button onClick={() => setFinalDiagnosis(null)} className="mt-4 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold py-2 px-4 rounded-lg transition">Neue Diagnose starten</button>
+                        <button onClick={() => { setFinalDiagnosis(null); setProblemText(''); }} className="mt-4 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold py-2 px-4 rounded-lg transition">Neue Diagnose starten</button>
                     </div>
                 )}
             </div>
