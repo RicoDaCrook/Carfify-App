@@ -1,16 +1,28 @@
 export default async function handler(request, response) {
     const { lat, lon } = request.query;
-    // FINALE KORREKTUR: Prüft jetzt auf beide möglichen Namen für den API-Schlüssel, um Fehler zu vermeiden.
-    const mapsApiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+    // Liest den API-Schlüssel aus den Vercel-Einstellungen.
+    const mapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
 
-    if (!lat || !lon) { return response.status(400).json({ error: 'Latitude and longitude are required' }); }
-    if (!mapsApiKey) { return response.status(500).json({ error: 'Google Maps API key not configured on server. Please check Vercel settings.' }); }
+    // Schritt 1: Überprüfen, ob der Schlüssel auf dem Server gefunden wurde.
+    if (!mapsApiKey) {
+        console.error("SERVER FEHLER: GOOGLE_MAPS_API_KEY wurde in den Vercel-Einstellungen nicht gefunden.");
+        return response.status(500).json({ error: 'Server-Konfigurationsfehler', message: 'Google Maps API-Schlüssel ist auf dem Server nicht gesetzt.' });
+    }
+
+    if (!lat || !lon) {
+        return response.status(400).json({ error: 'Fehlende Anfrageparameter', message: 'Latitude und Longitude sind erforderlich.' });
+    }
 
     const nearbySearchUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lon}&radius=5000&type=car_repair&language=de&key=${mapsApiKey}`;
     try {
         const searchRes = await fetch(nearbySearchUrl);
         const searchData = await searchRes.json();
-        if (searchData.status !== "OK") { return response.status(500).json({ error: `Google API Error: ${searchData.status}`, details: searchData.error_message }); }
+
+        // Schritt 2: Überprüfen, ob die Anfrage an Google erfolgreich war.
+        if (searchData.status !== "OK") {
+            console.error("GOOGLE MAPS API FEHLER:", searchData);
+            return response.status(500).json({ error: `Google API Fehler: ${searchData.status}`, details: searchData.error_message || 'Keine Details von Google erhalten.' });
+        }
 
         const workshopDetailsPromises = searchData.results.slice(0, 6).map(async (place) => {
             const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,rating,user_ratings_total,reviews,photo,vicinity&language=de&key=${mapsApiKey}`;
@@ -24,8 +36,11 @@ export default async function handler(request, response) {
             return { ...detailsData.result, photoUrl };
         });
         const workshopsWithDetails = await Promise.all(workshopDetailsPromises);
+
+        // Schritt 3: Erfolgreiche Antwort senden.
         response.status(200).json(workshopsWithDetails);
     } catch (error) {
-        response.status(500).json({ error: 'Failed to fetch workshops', details: error.message });
+        console.error("UNERWARTETER SERVER FEHLER:", error);
+        response.status(500).json({ error: 'Interner Serverfehler', details: error.message });
     }
 }
