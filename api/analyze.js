@@ -1,7 +1,9 @@
 export default async function handler(request, response) {
     if (request.method !== 'POST') { return response.status(405).json({ error: 'Method Not Allowed' }); }
-    const geminiApiKey = process.env.REACT_APP_GEMINI_API_KEY;
-    if (!geminiApiKey) { return response.status(500).json({ error: 'Gemini API key not configured' }); }
+    // KORREKTUR: Der Name des API-Schlüssels wurde geändert.
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+
+    if (!geminiApiKey) { return response.status(500).json({ error: 'Gemini API key not configured on server' }); }
     try {
         const { prompt } = request.body;
         if (!prompt) { return response.status(400).json({ error: 'Prompt is required' }); }
