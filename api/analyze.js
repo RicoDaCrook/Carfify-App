@@ -10,12 +10,15 @@ export default async function handler(request, response) {
         const newPrompt = `
             Analysiere das folgende Autoproblem. Erstelle eine strukturierte JSON-Antwort.
 
-            WICHTIGE ANWEISUNGEN:
-            1.  **possibleCauses**: Erstelle eine Liste möglicher Ursachen. Formatiere JEDEN Eintrag als String, der mit "- " beginnt (Bindestrich gefolgt von einem Leerzeichen).
-            2.  **Kostenschätzung**: Identifiziere die EINE, wahrscheinlichste Ursache aus deiner Liste. Die Felder "estimatedLabor" und "estimatedPartsCost" dürfen sich NUR auf diese EINE wahrscheinlichste Ursache beziehen. Addiere NICHT die Kosten für alle möglichen Ursachen.
+            DEINE SCHRITT-FÜR-SCHRITT-ANWEISUNGEN:
+            1.  **Analysiere das Problem**: Lies die Problembeschreibung des Nutzers.
+            2.  **Liste möglicher Ursachen**: Erstelle eine Liste ALLER möglichen Ursachen. Formatiere JEDEN Eintrag im "possibleCauses"-Array als einen String, der mit "- " beginnt (Bindestrich gefolgt von einem Leerzeichen).
+            3.  **Identifiziere die EINE wahrscheinlichste Ursache**: Wähle aus deiner Liste die EINE Ursache aus, die am besten zur Beschreibung passt.
+            4.  **Schätze die Kosten NUR für diese EINE Ursache**: Die Felder "estimatedLabor" und "estimatedPartsCost" dürfen sich AUSSCHLIESSLICH auf die in Schritt 3 identifizierte, wahrscheinlichste Ursache beziehen. Addiere NICHT die Kosten für alle möglichen Ursachen.
+            5.  **Gib das JSON aus**: Stelle sicher, dass das JSON exakt die folgenden Felder enthält.
 
-            Das JSON muss exakt die folgenden Felder enthalten:
-            - "possibleCauses": Array von Strings.
+            JSON-STRUKTUR:
+            - "possibleCauses": Array von Strings (formatiert wie in Anweisung 2).
             - "recommendation": String.
             - "urgency": String ('Niedrig', 'Mittel', oder 'Hoch').
             - "estimatedLabor": Zahl (nur für die wahrscheinlichste Ursache).
