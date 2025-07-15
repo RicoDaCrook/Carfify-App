@@ -23,6 +23,51 @@ function useTypewriter(text, speed = 30) {
 // Lade-Spinner Komponente
 const Spinner = ({ text }) => ( <div className="flex items-center justify-center gap-2"><svg className="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>{text}</span></div> );
 
+// Neue Workshop-Kategorien Komponente
+const WorkshopTypeInfo = ({ type }) => {
+    const typeInfo = {
+        dealership: {
+            label: 'Vertragswerkstatt',
+            color: 'text-blue-600 bg-blue-50',
+            icon: 'fa-award',
+            description: 'Höhere Preise, aber optimal für Garantie & Wiederverkaufswert'
+        },
+        chain: {
+            label: 'Werkstattkette',
+            color: 'text-orange-600 bg-orange-50',
+            icon: 'fa-link',
+            description: 'Mittlere Preise, standardisierte Qualität'
+        },
+        independent: {
+            label: 'Freie Werkstatt',
+            color: 'text-green-600 bg-green-50',
+            icon: 'fa-wrench',
+            description: 'Günstige Preise, Qualität variiert'
+        },
+        specialist_transmission: {
+            label: 'Getriebe-Spezialist',
+            color: 'text-purple-600 bg-purple-50',
+            icon: 'fa-cogs',
+            description: 'Spezialisiert auf Getriebe-Reparaturen'
+        },
+        specialist_engine: {
+            label: 'Motor-Spezialist',
+            color: 'text-red-600 bg-red-50',
+            icon: 'fa-engine',
+            description: 'Spezialisiert auf Motor-Reparaturen'
+        }
+    };
+    
+    const info = typeInfo[type] || typeInfo.independent;
+    
+    return (
+        <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${info.color}`}>
+            <i className={`fa-solid ${info.icon}`}></i>
+            <span>{info.label}</span>
+        </div>
+    );
+};
+
 // Neue Komponente für die intelligente Kostenanzeige
 const CostEstimateDisplay = ({ analysis }) => {
     const minCost = analysis.minCost || 100;
@@ -104,6 +149,42 @@ const CostEstimateDisplay = ({ analysis }) => {
                         />
                     </div>
                 </div>
+                
+                {/* Preisschätzung nach Werkstatt-Typ */}
+                {minCost && maxCost && (
+                    <div className="mt-4 p-3 bg-slate-50 rounded-lg">
+                        <p className="text-xs font-semibold text-slate-700 mb-2">
+                            <i className="fa-solid fa-coins mr-1"></i>
+                            Preisschätzung nach Werkstatt-Typ:
+                        </p>
+                        <div className="space-y-1 text-xs">
+                            <div className="flex justify-between items-center">
+                                <span className="text-slate-600">
+                                    <i className="fa-solid fa-award text-blue-500 mr-1"></i>
+                                    Vertragswerkstatt:
+                                </span>
+                                <span className="font-semibold text-blue-700">{Math.round(maxCost * 0.9)}€ - {maxCost}€</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-slate-600">
+                                    <i className="fa-solid fa-link text-orange-500 mr-1"></i>
+                                    Werkstattkette:
+                                </span>
+                                <span className="font-semibold text-orange-700">
+                                    {Math.round(minCost + (maxCost - minCost) * 0.4)}€ - 
+                                    {Math.round(minCost + (maxCost - minCost) * 0.7)}€
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-slate-600">
+                                    <i className="fa-solid fa-wrench text-green-500 mr-1"></i>
+                                    Freie Werkstatt:
+                                </span>
+                                <span className="font-semibold text-green-700">{minCost}€ - {Math.round(minCost + (maxCost - minCost) * 0.5)}€</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 
                 {/* Erklärung zur Kostenunsicherheit */}
                 {analysis.costUncertaintyReason && (
@@ -229,21 +310,240 @@ function InteractiveDiagnosis({ initialProblem, vehicleInfo, onDiagnosisComplete
     return ( <div className="p-5 bg-slate-200 border border-slate-300 rounded-xl mt-6"><h2 className="text-lg font-bold text-slate-800 mb-4">Interaktive Diagnose zur Verfeinerung</h2><div className="space-y-4"><div className="p-4 bg-white rounded-lg min-h-[6rem] flex items-center"><p className="text-slate-700 font-semibold">{displayedQuestion}</p>{isLoading && <Spinner text="KI denkt nach..." />}</div>{!isLoading && currentAnswers.length > 0 && ( <div className="flex flex-wrap gap-2 justify-center">{currentAnswers.map((answer, i) => ( <button key={i} onClick={() => handleAnswerClick(answer)} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition">{answer}</button> ))}</div> )}<div ref={endOfChatRef} />{error && <p className="text-sm text-red-500 text-center">{error}</p>}</div></div> );
 }
 
-// Werkstatt-Karte Komponente
-function WorkshopCard({ workshop }) {
-    const [analysis, setAnalysis] = useState(null); const [isAnalyzing, setIsAnalyzing] = useState(false); const [error, setError] = useState('');
+// Erweiterte WorkshopCard Komponente
+function WorkshopCard({ workshop, problem }) {
+    const [analysis, setAnalysis] = useState(null);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [error, setError] = useState('');
+    const [showDetails, setShowDetails] = useState(false);
+    
     const handleAnalyzeReviews = async () => {
-        if (!workshop.reviews || workshop.reviews.length === 0) { setError("Für diese Werkstatt liegen keine Rezensionen vor."); return; }
-        setIsAnalyzing(true); setError(''); setAnalysis(null);
+        if (!workshop.reviews || workshop.reviews.length === 0) {
+            setError("Für diese Werkstatt liegen keine Rezensionen vor.");
+            return;
+        }
+        
+        setIsAnalyzing(true);
+        setError('');
+        setAnalysis(null);
+        
         try {
-            const reviewText = workshop.reviews.map(r => `- "${r.text}"`).join('\n');
-            const prompt = `Analysiere die folgenden Kundenrezensionen für eine Autowerkstatt. Erstelle eine strukturierte Zusammenfassung im JSON-Format. Das JSON-Objekt muss exakt diese Struktur haben: {"summary": "Eine kurze Gesamtzusammenfassung in 2-3 Sätzen.","pros": ["Ein positiver Punkt"], "cons": ["Ein negativer Punkt"]}. Hier sind die Rezensionen: ${reviewText}`;
-            const response = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) });
-            if (!response.ok) { const errorData = await response.json().catch(() => ({ message: 'Unbekannter Analyse-Fehler' })); throw new Error(errorData.message || `Analyse API Fehler (${response.status})`); }
-            const parsedAnalysis = await response.json(); setAnalysis(parsedAnalysis);
-        } catch (err) { setError('Analyse fehlgeschlagen: ' + err.message); } finally { setIsAnalyzing(false); }
+            const reviewText = workshop.reviews.slice(0, 5).map(r => `"${r.text}"`).join('\n');
+            const prompt = `Analysiere diese Google-Rezensionen für eine Autowerkstatt. Erstelle eine JSON-Antwort mit genau dieser Struktur: {"summary": "Kurze Zusammenfassung in 2-3 Sätzen", "pros": ["Maximal 3 positive Punkte"], "cons": ["Maximal 3 negative Punkte"], "priceIndication": "Günstig|Mittel|Teuer|Unklar"}. Rezensionen:\n${reviewText}`;
+            
+            const response = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`API Fehler (${response.status})`);
+            }
+            
+            const parsedAnalysis = await response.json();
+            
+            // Validierung der Antwort
+            if (!parsedAnalysis.summary) {
+                parsedAnalysis.summary = "Analyse konnte nicht vollständig durchgeführt werden.";
+            }
+            if (!Array.isArray(parsedAnalysis.pros)) {
+                parsedAnalysis.pros = [];
+            }
+            if (!Array.isArray(parsedAnalysis.cons)) {
+                parsedAnalysis.cons = [];
+            }
+            
+            setAnalysis(parsedAnalysis);
+        } catch (err) {
+            console.error('Analyse Error:', err);
+            setError('Analyse fehlgeschlagen. Bitte versuchen Sie es später erneut.');
+        } finally {
+            setIsAnalyzing(false);
+        }
     };
-    return ( <div className="bg-white p-4 rounded-lg border border-slate-200/80 shadow-sm hover:shadow-lg hover:border-blue-500 workshop-card"><div className="flex gap-4"><img src={workshop.photoUrl} alt={workshop.name} className="w-24 h-24 rounded-md object-cover bg-slate-100" onError={(e) => e.target.src='https://placehold.co/400x400/94a3b8/ffffff?text=Carfify'}/><div className="flex-1"><h3 className="font-bold text-slate-900">{workshop.name}</h3><p className="text-sm text-slate-500 mt-1"><i className="fa-solid fa-location-dot mr-2 text-slate-400"></i>{workshop.vicinity}</p><div className="text-sm text-slate-600 mt-1 flex items-center gap-2"><span className="font-bold text-amber-500">{workshop.rating}</span><i className="fa-solid fa-star text-amber-500"></i><span>({workshop.user_ratings_total} Bewertungen)</span></div></div></div><div className="mt-4">{isAnalyzing ? ( <div className="w-full bg-slate-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center"><Spinner text="Analysiere Rezensionen..." /></div> ) : ( <button onClick={handleAnalyzeReviews} className="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 px-4 rounded-lg transition duration-300 text-sm"><i className="fa-solid fa-wand-magic-sparkles mr-2"></i>KI-Analyse der Rezensionen</button> )}</div>{error && <p className="text-xs text-red-500 mt-2">{error}</p>}{analysis && ( <div className="mt-4 pt-4 border-t border-slate-200 fade-in"><h4 className="font-semibold text-slate-700 mb-2">KI-Zusammenfassung:</h4>{analysis.summary && <p className="text-sm text-slate-600 italic mb-3">"{analysis.summary}"</p>}<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">{analysis.pros && analysis.pros.length > 0 && <div><h5 className="font-semibold text-green-600 flex items-center"><i className="fa-solid fa-circle-plus mr-2"></i>Pro</h5><ul className="list-disc list-inside text-slate-600 mt-1">{analysis.pros.map((pro, i) => <li key={i}>{pro}</li>)}</ul></div>}{analysis.cons && analysis.cons.length > 0 && <div><h5 className="font-semibold text-red-600 flex items-center"><i className="fa-solid fa-circle-minus mr-2"></i>Contra</h5><ul className="list-disc list-inside text-slate-600 mt-1">{analysis.cons.map((con, i) => <li key={i}>{con}</li>)}</ul></div>}</div></div> )}</div> );
+    
+    // Prüfe ob Spureinstellung nötig ist
+    const needsAlignment = problem && (
+        problem.toLowerCase().includes('fahrwerk') ||
+        problem.toLowerCase().includes('spurstange') ||
+        problem.toLowerCase().includes('querlenker') ||
+        problem.toLowerCase().includes('stoßdämpfer')
+    );
+    
+    return (
+        <div className="bg-white p-4 rounded-lg border border-slate-200/80 shadow-sm hover:shadow-lg hover:border-blue-500 workshop-card transition-all duration-300">
+            <div className="flex gap-4">
+                <img 
+                    src={workshop.photoUrl} 
+                    alt={workshop.name} 
+                    className="w-24 h-24 rounded-md object-cover bg-slate-100" 
+                    onError={(e) => e.target.src='https://placehold.co/400x400/94a3b8/ffffff?text=Carfify'}
+                />
+                <div className="flex-1">
+                    <div className="flex items-start justify-between">
+                        <h3 className="font-bold text-slate-900">{workshop.name}</h3>
+                        <WorkshopTypeInfo type={workshop.workshopType} />
+                    </div>
+                    <p className="text-sm text-slate-500 mt-1">
+                        <i className="fa-solid fa-location-dot mr-2 text-slate-400"></i>
+                        {workshop.vicinity}
+                    </p>
+                    <div className="text-sm text-slate-600 mt-1 flex items-center gap-3">
+                        <span className="flex items-center gap-1">
+                            <span className="font-bold text-amber-500">{workshop.rating || 'N/A'}</span>
+                            <i className="fa-solid fa-star text-amber-500"></i>
+                            <span>({workshop.user_ratings_total || 0} Bewertungen)</span>
+                        </span>
+                        <span className="text-xs text-slate-400">
+                            <i className="fa-brands fa-google mr-1"></i>
+                            Google verifiziert
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            {needsAlignment && workshop.workshopType === 'independent' && (
+                <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded-md">
+                    <p className="text-xs text-amber-800">
+                        <i className="fa-solid fa-info-circle mr-1"></i>
+                        <strong>Hinweis:</strong> Nach dieser Reparatur ist eine Spureinstellung nötig (ca. 80-120€ extra). 
+                        Freie Werkstätten bieten dies nicht immer an.
+                    </p>
+                </div>
+            )}
+            
+            <div className="mt-4 flex gap-2">
+                {!showDetails ? (
+                    <>
+                        <button 
+                            onClick={() => setShowDetails(true)} 
+                            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 text-sm"
+                        >
+                            <i className="fa-solid fa-info-circle mr-2"></i>Details anzeigen
+                        </button>
+                        {isAnalyzing ? (
+                            <div className="flex-1 bg-slate-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center">
+                                <Spinner text="Analysiere..." />
+                            </div>
+                        ) : (
+                            <button 
+                                onClick={handleAnalyzeReviews} 
+                                className="flex-1 bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 px-4 rounded-lg transition duration-300 text-sm"
+                            >
+                                <i className="fa-solid fa-wand-magic-sparkles mr-2"></i>KI-Analyse
+                            </button>
+                        )}
+                    </>
+                ) : (
+                    <button 
+                        onClick={() => setShowDetails(false)} 
+                        className="w-full bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 text-sm"
+                    >
+                        <i className="fa-solid fa-chevron-up mr-2"></i>Details ausblenden
+                    </button>
+                )}
+            </div>
+            
+            {showDetails && (
+                <div className="mt-4 pt-4 border-t border-slate-200 space-y-3 fade-in">
+                    {workshop.phone && (
+                        <a 
+                            href={`tel:${workshop.phone}`} 
+                            className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800"
+                        >
+                            <i className="fa-solid fa-phone"></i>
+                            <span>{workshop.phone}</span>
+                        </a>
+                    )}
+                    
+                    {workshop.website && (
+                        <a 
+                            href={workshop.website} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800"
+                        >
+                            <i className="fa-solid fa-globe"></i>
+                            <span>Website besuchen</span>
+                        </a>
+                    )}
+                    
+                    {workshop.opening_hours && (
+                        <div className="text-sm">
+                            <p className="font-semibold text-slate-700 mb-1">
+                                <i className="fa-solid fa-clock mr-2"></i>Öffnungszeiten:
+                            </p>
+                            <div className="text-xs text-slate-600 space-y-0.5 ml-5">
+                                {workshop.opening_hours.weekday_text?.map((day, i) => (
+                                    <p key={i}>{day}</p>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    
+                    <a 
+                        href={`https://www.google.com/maps/place/?q=place_id:${workshop.place_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-sm bg-blue-100 text-blue-700 px-3 py-1.5 rounded-md hover:bg-blue-200 transition"
+                    >
+                        <i className="fa-solid fa-map"></i>
+                        In Google Maps öffnen
+                    </a>
+                </div>
+            )}
+            
+            {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
+            
+            {analysis && (
+                <div className="mt-4 pt-4 border-t border-slate-200 fade-in">
+                    <h4 className="font-semibold text-slate-700 mb-2 flex items-center">
+                        <i className="fa-solid fa-robot mr-2"></i>KI-Zusammenfassung:
+                    </h4>
+                    {analysis.summary && (
+                        <p className="text-sm text-slate-600 italic mb-3">"{analysis.summary}"</p>
+                    )}
+                    
+                    {analysis.priceIndication && analysis.priceIndication !== 'Unklar' && (
+                        <div className="mb-3">
+                            <span className="text-xs font-semibold">Preisniveau: </span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                analysis.priceIndication === 'Günstig' ? 'bg-green-100 text-green-700' :
+                                analysis.priceIndication === 'Mittel' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-red-100 text-red-700'
+                            }`}>
+                                {analysis.priceIndication}
+                            </span>
+                        </div>
+                    )}
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        {analysis.pros && analysis.pros.length > 0 && (
+                            <div>
+                                <h5 className="font-semibold text-green-600 flex items-center">
+                                    <i className="fa-solid fa-circle-plus mr-2"></i>Pro
+                                </h5>
+                                <ul className="list-disc list-inside text-slate-600 mt-1 space-y-0.5">
+                                    {analysis.pros.map((pro, i) => <li key={i}>{pro}</li>)}
+                                </ul>
+                            </div>
+                        )}
+                        {analysis.cons && analysis.cons.length > 0 && (
+                            <div>
+                                <h5 className="font-semibold text-red-600 flex items-center">
+                                    <i className="fa-solid fa-circle-minus mr-2"></i>Contra
+                                </h5>
+                                <ul className="list-disc list-inside text-slate-600 mt-1 space-y-0.5">
+                                    {analysis.cons.map((con, i) => <li key={i}>{con}</li>)}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }
 
 // Komponente für die HSN/TSN Eingabe
@@ -286,9 +586,14 @@ function App() {
     };
 
     const fetchWorkshops = async (latitude, longitude) => { 
-        const response = await fetch(`/api/workshops?lat=${latitude}&lon=${longitude}`); 
-        if (!response.ok) { const errorData = await response.json().catch(() => ({ message: 'Unbekannter Werkstatt-Suche-Fehler' })); throw new Error(errorData.message || `Werkstatt-Suche API Fehler (${response.status})`); } 
-        return await response.json(); 
+        const vehicleInfo = foundVehicle ? foundVehicle.name.split(' ')[0] : ''; // Extrahiere Marke
+        const response = await fetch(`/api/workshops?lat=${latitude}&lon=${longitude}&problem=${encodeURIComponent(problemText)}&vehicleBrand=${encodeURIComponent(vehicleInfo)}`); 
+        if (!response.ok) { 
+            const errorData = await response.json().catch(() => ({ message: 'Unbekannter Werkstatt-Suche-Fehler' })); 
+            throw new Error(errorData.message || `Werkstatt-Suche API Fehler (${response.status})`); 
+        } 
+        const data = await response.json();
+        return data.workshops || data; // Unterstütze beide Formate
     };
 
     return ( <div className="min-h-screen p-4 md:p-8 flex justify-center items-start"><div className="bg-white p-6 md:p-8 rounded-2xl shadow-lg w-full max-w-4xl border"><header className="text-center mb-8"><img src="/logo.png" alt="Carfify Logo" className="mx-auto h-24 w-auto" /></header>{error && <div className="p-3 mb-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg"><p>{error}</p></div>}{!aiAnalysis && (<div><VehicleIdentifier hsn={hsn} setHsn={setHsn} tsn={tsn} setTsn={setTsn} onFind={handleFindVehicle} isFinding={isFindingVehicle} />{foundVehicle && ( <div className="p-5 mb-6 bg-blue-50 border border-blue-200 rounded-xl fade-in"><div className="flex flex-col sm:flex-row items-center gap-4"><img src={foundVehicle.imageUrl} onError={(e) => e.target.src='https://placehold.co/600x400/e0e0e0/000000?text=Bild+fehlt'} alt={foundVehicle.name} className="w-32 h-auto rounded-lg bg-white object-cover" /><div><p className="font-bold text-lg text-slate-800">{foundVehicle.name}</p><p className="text-sm text-slate-600">Leistung: {foundVehicle.ps}</p><p className="text-sm text-slate-600">Bauzeitraum: {foundVehicle.year}</p></div></div></div> )}<div className="p-5 bg-slate-50 border rounded-xl mb-6"><h2 className="text-lg font-bold text-slate-800 mb-3">2. Problem beschreiben</h2><textarea id="problem" className="w-full p-3 border rounded-lg" value={problemText} onChange={(e) => setProblemText(e.target.value)} rows="4"></textarea></div><button onClick={handleSubmit} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg" disabled={isLoading || !problemText}>{isLoading ? <Spinner text="Analysiere & Suche..." /> : <span><i className="fa-solid fa-search-dollar mr-2"></i>Analyse & Werkstätten finden</span>}</button></div>)}{aiAnalysis && ( <div className="fade-in"><button onClick={() => {setAiAnalysis(null); setStartInteractive(false);}} className="mb-4 text-sm text-blue-600 hover:underline">&larr; Neue Diagnose starten</button><VehicleIdentifier hsn={hsn} setHsn={setHsn} tsn={tsn} setTsn={setTsn} onFind={handleFindVehicle} isFinding={isFindingVehicle} />{!foundVehicle && <div className="p-4 mb-6 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded-lg"><h3 className="font-bold"><i className="fa-solid fa-triangle-exclamation mr-2"></i>Hinweis zur Genauigkeit</h3><p className="text-sm">Für eine präzisere Analyse, identifizieren Sie bitte Ihr Fahrzeug.</p></div>}<div className="p-5 bg-slate-100 border rounded-xl"><h2 className="text-xl font-bold text-slate-800 mb-4">KI-Analyse & Kostenschätzung</h2><div className="space-y-4">{aiAnalysis.possibleCauses && (
@@ -333,7 +638,68 @@ function App() {
                                 </span>
                             )}
                         </div>
-                    )}{aiAnalysis.likelyRequiredParts && aiAnalysis.likelyRequiredParts.length > 0 && <div><strong className="text-slate-600 block mb-1">Benötigte Teile (Vorschläge):</strong> <div className="flex flex-wrap gap-2 mt-1">{aiAnalysis.likelyRequiredParts.map(part => (<a key={part} href={`https://www.autodoc.de/search?keyword=${encodeURIComponent(part)}`} target="_blank" rel="noopener noreferrer" className="text-sm bg-slate-200 hover:bg-slate-300 text-slate-800 px-2 py-1 rounded-md transition">{part} <i className="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>))}</div></div>}<CostEstimateDisplay analysis={aiAnalysis} />{aiAnalysis.diyTips && aiAnalysis.diyTips.length > 0 && <div><strong>Für Selbermacher:</strong><ul className="list-disc list-inside ml-4 mt-1 text-sm text-slate-700">{aiAnalysis.diyTips.map((tip, i) => <li key={i}>{tip}</li>)}{aiAnalysis.youtubeSearchQuery && <li><a href={`https://www.youtube.com/results?search_query=${encodeURIComponent(aiAnalysis.youtubeSearchQuery)}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Passende YouTube-Tutorials ansehen <i className="fa-solid fa-arrow-up-right-from-square text-xs"></i></a></li>}</ul></div>}</div>{!startInteractive && ( <div className="mt-6 pt-4 border-t"><p className="text-sm text-center text-slate-600 mb-2">Um das Problem weiter einzugrenzen, können wir eine interaktive Diagnose starten.</p><button onClick={() => setStartInteractive(true)} className="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 px-4 rounded-lg"><i className="fa-solid fa-comments mr-2"></i>Interaktive Diagnose starten</button></div> )}{startInteractive && ( <InteractiveDiagnosis initialProblem={problemText} vehicleInfo={foundVehicle ? foundVehicle.name : 'Nicht angegeben'} onDiagnosisComplete={(finalDiagnosis) => { setAiAnalysis(prev => ({ ...prev, possibleCauses: [finalDiagnosis], mostLikelyCause: finalDiagnosis, recommendation: "Basierend auf der interaktiven Diagnose wurde das Problem weiter eingegrenzt.", diagnosisCertainty: 85 })); setStartInteractive(false); }} /> )}</div>{workshops.length > 0 && ( <div className="mt-8"> <h2 className="text-xl font-bold text-slate-800 mb-4">Passende Werkstätten in deiner Nähe</h2> <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">{workshops.map(shop => <WorkshopCard key={shop.place_id} workshop={shop} />)}</div> </div> )}</div> )}</div></div> );
+                    )}{aiAnalysis.likelyRequiredParts && aiAnalysis.likelyRequiredParts.length > 0 && <div><strong className="text-slate-600 block mb-1">Benötigte Teile (Vorschläge):</strong> <div className="flex flex-wrap gap-2 mt-1">{aiAnalysis.likelyRequiredParts.map(part => (<a key={part} href={`https://www.autodoc.de/search?keyword=${encodeURIComponent(part)}`} target="_blank" rel="noopener noreferrer" className="text-sm bg-slate-200 hover:bg-slate-300 text-slate-800 px-2 py-1 rounded-md transition">{part} <i className="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>))}</div></div>}<CostEstimateDisplay analysis={aiAnalysis} />{aiAnalysis.diyTips && aiAnalysis.diyTips.length > 0 && <div><strong>Für Selbermacher:</strong><ul className="list-disc list-inside ml-4 mt-1 text-sm text-slate-700">{aiAnalysis.diyTips.map((tip, i) => <li key={i}>{tip}</li>)}{aiAnalysis.youtubeSearchQuery && <li><a href={`https://www.youtube.com/results?search_query=${encodeURIComponent(aiAnalysis.youtubeSearchQuery)}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Passende YouTube-Tutorials ansehen <i className="fa-solid fa-arrow-up-right-from-square text-xs"></i></a></li>}</ul></div>}</div>{!startInteractive && ( <div className="mt-6 pt-4 border-t"><p className="text-sm text-center text-slate-600 mb-2">Um das Problem weiter einzugrenzen, können wir eine interaktive Diagnose starten.</p><button onClick={() => setStartInteractive(true)} className="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 px-4 rounded-lg"><i className="fa-solid fa-comments mr-2"></i>Interaktive Diagnose starten</button></div> )}{startInteractive && ( <InteractiveDiagnosis initialProblem={problemText} vehicleInfo={foundVehicle ? foundVehicle.name : 'Nicht angegeben'} onDiagnosisComplete={(finalDiagnosis) => { setAiAnalysis(prev => ({ ...prev, possibleCauses: [finalDiagnosis], mostLikelyCause: finalDiagnosis, recommendation: "Basierend auf der interaktiven Diagnose wurde das Problem weiter eingegrenzt.", diagnosisCertainty: 85 })); setStartInteractive(false); }} /> )}</div>{workshops.length > 0 && ( 
+                <div className="mt-8"> 
+                    <h2 className="text-xl font-bold text-slate-800 mb-4">
+                        Passende Werkstätten in deiner Nähe
+                    </h2> 
+                    
+                    {/* Hinweis wenn keine Fahrzeugmarke angegeben */}
+                    {!foundVehicle && (
+                        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p className="text-sm text-blue-800">
+                                <i className="fa-solid fa-info-circle mr-2"></i>
+                                <strong>Tipp:</strong> Identifizieren Sie Ihr Fahrzeug oben für markenspezifische Vertragswerkstätten.
+                            </p>
+                        </div>
+                    )}
+                    
+                    {/* Werkstatt-Kategorien Erklärung */}
+                    <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                        <h3 className="font-semibold text-slate-700 mb-2">Werkstatt-Kategorien:</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                            <div className="flex items-start gap-2">
+                                <i className="fa-solid fa-award text-blue-600 mt-0.5"></i>
+                                <div>
+                                    <strong className="text-slate-700">Vertragswerkstätten:</strong>
+                                    <p className="text-xs text-slate-600">Teurer, aber optimal für Garantie & Wiederverkaufswert bei neueren Fahrzeugen</p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-2">
+                                <i className="fa-solid fa-link text-orange-600 mt-0.5"></i>
+                                <div>
+                                    <strong className="text-slate-700">Werkstattketten (ATU, etc.):</strong>
+                                    <p className="text-xs text-slate-600">Mittlere Preise, standardisierte Qualität</p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-2">
+                                <i className="fa-solid fa-wrench text-green-600 mt-0.5"></i>
+                                <div>
+                                    <strong className="text-slate-700">Freie Werkstätten:</strong>
+                                    <p className="text-xs text-slate-600">Günstigste Preise, Qualität variiert je nach Betrieb</p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-2">
+                                <i className="fa-solid fa-cogs text-purple-600 mt-0.5"></i>
+                                <div>
+                                    <strong className="text-slate-700">Spezialisten:</strong>
+                                    <p className="text-xs text-slate-600">Für spezifische Probleme (Motor/Getriebe) oft die beste Wahl</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {workshops.map(shop => (
+                            <WorkshopCard 
+                                key={shop.place_id} 
+                                workshop={shop} 
+                                problem={problemText}
+                            />
+                        ))}
+                    </div>
+                </div> 
+            )}</div> )}</div></div> );
 }
 const container = document.getElementById('root');
 const root = ReactDOM.createRoot(container);
