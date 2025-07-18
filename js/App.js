@@ -263,24 +263,51 @@ function InteractiveDiagnosisV2({ initialProblem, vehicleInfo, onDiagnosisComple
         }
     }, []);
 
+    // KORRIGIERT: Komplette Funktion mit Debug-Logs und besserer Logik
     const fetchCategories = async () => {
         setIsLoading(true);
         setError('');
+        console.log('Fetching categories...'); // DEBUG
         try {
             const response = await fetch('/api/diagnose', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     history: history,
-                    // KORRIGIERT: Richtiger Mode-Name
                     mode: 'analyze_categories'
                 })
             });
-            if (!response.ok) throw new Error(`Server-Fehler (${response.status})`);
+
+            console.log('Response status:', response.status); // DEBUG
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('API Error:', errorText); // DEBUG
+                throw new Error(`Server-Fehler (${response.status}): ${errorText}`);
+            }
+
             const data = await response.json();
-            setCategories(data.categories);
-            setStage('overview');
+            console.log('Categories data:', data); // DEBUG
+
+            // WICHTIG: Prüfe ob die Daten korrekt sind
+            if (data.singleCategory) {
+                setCategories([{
+                    name: data.categoryName,
+                    status: 'pending',
+                    probability: 100
+                }]);
+                setStage('overview');
+            } else if (data.categories && Array.isArray(data.categories)) {
+                setCategories(data.categories.map(cat => ({
+                    ...cat,
+                    status: 'pending'
+                })));
+                setStage('overview');
+            } else {
+                throw new Error('Unerwartete Antwortstruktur von der API');
+            }
         } catch (err) {
+            console.error('Fetch error:', err); // DEBUG
             setError('Fehler beim Laden der Kategorien: ' + err.message);
         } finally {
             setIsLoading(false);
@@ -337,7 +364,6 @@ function InteractiveDiagnosisV2({ initialProblem, vehicleInfo, onDiagnosisComple
 
     const handleAnswer = (answer) => {
         if (answer === 'Weiß nicht') {
-            // Zeige Selbstprüfungs-Anleitung
             showSelfCheckGuide();
             return;
         }
@@ -380,7 +406,6 @@ function InteractiveDiagnosisV2({ initialProblem, vehicleInfo, onDiagnosisComple
                 })
             });
             const data = await response.json();
-            // Zeige Antwort in einem Modal oder füge sie zur Historie hinzu
             alert(data.answer); // Temporary - sollte schöner dargestellt werden
             setFreeTextInput('');
             setShowFreeText(false);
@@ -428,7 +453,6 @@ function InteractiveDiagnosisV2({ initialProblem, vehicleInfo, onDiagnosisComple
                                     </button>
                                 </div>
                             </div>
-                            {/* Progress bar wenn bereits Fragen beantwortet */}
                             {questionProgress[cat.name] > 0 && (
                                 <div className="mt-3">
                                     <div className="w-full bg-gray-800 rounded-full h-2">
@@ -473,7 +497,6 @@ function InteractiveDiagnosisV2({ initialProblem, vehicleInfo, onDiagnosisComple
                         Zurück zur Übersicht
                     </button>
                 </div>
-                {/* Progress */}
                 {questionProgress[currentCategory.name] > 0 && (
                     <div className="mb-4">
                         <div className="w-full bg-gray-800 rounded-full h-2">
@@ -511,7 +534,6 @@ function InteractiveDiagnosisV2({ initialProblem, vehicleInfo, onDiagnosisComple
                     )}
                     {error && <p className="text-sm text-red-400 text-center">{error}</p>}
                 </div>
-                {/* Selbstprüfungs-Anleitung */}
                 {selfCheckGuide && (
                     <div className="mt-4 p-4 bg-blue-900/20 border border-[#4cc3ee]/50 rounded-lg">
                         <h3 className="font-semibold text-[#4cc3ee] mb-2">
@@ -549,7 +571,6 @@ function InteractiveDiagnosisV2({ initialProblem, vehicleInfo, onDiagnosisComple
         );
     }
 
-    // Initial Loading
     if (isLoading && stage === 'categories') {
         return (
             <div className="p-6 bg-gray-900/50 border border-gray-700 rounded-xl mt-6 backdrop-blur-sm text-center">
@@ -558,7 +579,7 @@ function InteractiveDiagnosisV2({ initialProblem, vehicleInfo, onDiagnosisComple
         );
     }
     
-    // NEU: FEHLER-FALLBACK
+    // KORRIGIERT: Fehler-Fallback hinzugefügt
     if (error && !isLoading) {
         return (
             <div className="p-6 bg-gray-900/50 border border-gray-700 rounded-xl mt-6 backdrop-blur-sm">
