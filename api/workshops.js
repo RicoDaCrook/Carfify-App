@@ -1,10 +1,10 @@
 export default async function handler(request, response) {
     // Der Radius wird jetzt aus der Anfrage ausgelesen, mit 5000 als Standardwert
     const { lat, lon, problem, vehicleBrand, radius = 5000 } = request.query;
-    const mapsApiKey = process.env.Maps_API_KEY;
+    const mapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
 
     if (!mapsApiKey) {
-        console.error("SERVER ERROR: Maps_API_KEY not found in Vercel environment variables.");
+        console.error("SERVER ERROR: GOOGLE_MAPS_API_KEY not found in Vercel environment variables.");
         return response.status(500).json({ message: 'Server-Konfigurationsfehler: Google Maps API-Schlüssel ist auf dem Server nicht gesetzt.' });
     }
 
