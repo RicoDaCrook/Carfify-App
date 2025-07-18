@@ -272,7 +272,8 @@ function InteractiveDiagnosisV2({ initialProblem, vehicleInfo, onDiagnosisComple
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     history: history,
-                    mode: 'categories'
+                    // KORRIGIERT: Richtiger Mode-Name
+                    mode: 'analyze_categories'
                 })
             });
             if (!response.ok) throw new Error(`Server-Fehler (${response.status})`);
@@ -304,7 +305,8 @@ function InteractiveDiagnosisV2({ initialProblem, vehicleInfo, onDiagnosisComple
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     history: newHistory || history,
-                    mode: 'questions'
+                    // KORRIGIERT: Richtiger Mode-Name
+                    mode: 'category_questions'
                 })
             });
             if (!response.ok) throw new Error(`Server-Fehler (${response.status})`);
@@ -555,6 +557,25 @@ function InteractiveDiagnosisV2({ initialProblem, vehicleInfo, onDiagnosisComple
             </div>
         );
     }
+    
+    // NEU: FEHLER-FALLBACK
+    if (error && !isLoading) {
+        return (
+            <div className="p-6 bg-gray-900/50 border border-gray-700 rounded-xl mt-6 backdrop-blur-sm">
+                <div className="text-center">
+                    <i className="fa-solid fa-exclamation-triangle text-red-400 text-4xl mb-4"></i>
+                    <p className="text-red-400 mb-4">{error}</p>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="btn-primary"
+                    >
+                        Neu laden
+                    </button>
+                </div>
+            </div>
+        );
+    }
+    
     return null;
 }
 
