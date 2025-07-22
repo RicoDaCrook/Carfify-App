@@ -1,158 +1,140 @@
-export default async function handler(request, response) {
-    if (request.method !== 'POST') { 
-        return response.status(405).json({ message: 'Method Not Allowed' }); 
-    }
-    
-    const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
-    const geminiApiKey = process.env.GEMINI_API_KEY;
-    
-    if (!anthropicApiKey || !geminiApiKey) { 
-        return response.status(500).json({ message: 'API-Schlüssel fehlen auf dem Server.' }); 
-    }
-    
-    try {
-        const { prompt, useGemini = false } = request.body;
-        if (!prompt) { 
-            return response.status(400).json({ message: 'Ein "prompt" ist erforderlich.' }); 
-        }
-        
-        // Verwende Gemini für Werkstatt-Reviews
-        if (useGemini || prompt.includes('Rezensionen')) {
-            return await handleGeminiRequest(prompt, geminiApiKey, response);
-        }
-        
-        // Verwende Claude für alles andere (Diagnosen)
-        return await handleClaudeRequest(prompt, anthropicApiKey, response);
-        
-    } catch (error) {
-        console.error("Server-Fehler in /api/analyze:", error);
-        response.status(500).json({ 
-            message: 'Analyse konnte nicht verarbeitet werden', 
-            details: error.message 
-        });
-    }
+```js
+import { NextApiRequest, NextApiResponse } from 'next';
+import crypto from 'crypto';
+
+// Helper for consistent ETag generation
+const md5 = (data) => crypto.createHash('md5').update(data).digest('hex');
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', ['POST']);
+    return res.status(405).json({ success: false, message: 'Method Not Allowed' });
+  }
+
+  const { prompt, useGemini = false } = req.body;
+
+  if (!prompt?.trim()) {
+    return res.status(400).json({ success: false, message: '"prompt" ist erforderlich' });
+  }
+
+  const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+  const geminiApiKey = process.env.GEMINI_API_KEY;
+
+  if (!anthropicApiKey && !geminiApiKey) {
+    return res.status(500).json({ success: false, message: 'Keine API-Schlüssel konfiguriert' });
+  }
+
+  // Construct cache key
+  const cacheKey = md5(`${prompt}-${useGemini}`);
+  // Very short cache‐ttl because car symptoms evolve quickly
+  res.setHeader('Cache-Control', 'private, max-age=60, stale-while-revalidate=30');
+  res.setHeader('ETag', `"${cacheKey}"`);
+
+  if (req.headers['if-none-match'] === `"${cacheKey}"`) {
+    return res.status(304).json({});
+  }
+
+  // Decide which model to use
+  const isGemini = useGemini || /\brezension|review\b/i.test(prompt);
+
+  try {
+    const data = isGemini
+      ? await callGemini(prompt, geminiApiKey || '')
+      : await callClaude(prompt, anthropicApiKey || '');
+
+    return res.status(200).json(data);
+  } catch (err: any) {
+    console.error('[analyze]', err.message || err);
+    return res
+      .status(err.status || 500)
+      .json({ success: false, message: err.message || 'Server-Fehler' });
+  }
 }
 
-async function handleClaudeRequest(prompt, apiKey, response) {
-    // Verbesserter Prompt für Claude
-    const systemPrompt = `Du bist ein erfahrener KFZ-Meister mit 20 Jahren Berufserfahrung. 
-    Du gibst präzise, strukturierte Diagnosen und achtest auf hohe Genauigkeit.
-    Antworte IMMER im JSON-Format.`;
-    
-    const improvedPrompt = `
-${prompt}
+// --- Claude ----------------------------------------------------------
+const SYSTEM_PROMPT_CLAUDE = `You are an experienced automotive master mechanic (KFZ-Meister).  
+Return only valid JSON matching the below schema. Never wrap with triple backticks.
 
-WICHTIG: Deine Antwort MUSS ein valides JSON-Objekt sein mit exakt dieser Struktur:
+Schema:
+\`\`\`
 {
-    "possibleCauses": ["Liste aller möglichen Ursachen, sortiert nach Wahrscheinlichkeit"],
-    "mostLikelyCause": "Die wahrscheinlichste Ursache (kurz und prägnant)",
-    "diagnosisCertainty": ZAHL_0_BIS_100,
-    "affectedCategories": ["Fahrwerk", "Motor", "Getriebe", etc.],
-    "costUncertaintyReason": "Erklärung warum die Kosten variieren können",
-    "recommendation": "Deine Empfehlung",
-    "urgency": "Niedrig|Mittel|Hoch|Kritisch",
-    "estimatedLabor": ARBEITSZEIT_IN_STUNDEN,
-    "minCost": MINIMALE_GESAMTKOSTEN,
-    "maxCost": MAXIMALE_GESAMTKOSTEN,
-    "likelyRequiredParts": ["Mögliche benötigte Teile"],
-    "diagnosticStepsNeeded": ["Welche Tests/Diagnosen sind nötig"],
-    "selfCheckPossible": true/false,
-    "selfCheckDifficulty": "Einfach|Mittel|Schwer",
-    "diyTips": ["Tipps für Selbermacher"],
-    "youtubeSearchQuery": "Suchbegriff für YouTube"
-}`;
-    
-    try {
-        const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify({
-                model: 'claude-3-5-sonnet-20241022',
-                max_tokens: 2048,
-                temperature: 0.3, // Niedrig für konsistente Antworten
-                system: systemPrompt,
-                messages: [{
-                    role: 'user',
-                    content: improvedPrompt
-                }]
-            })
-        });
-        
-        if (!claudeResponse.ok) {
-            const errorData = await claudeResponse.json();
-            console.error("Claude API Error:", errorData);
-            throw new Error(errorData.error?.message || 'Claude API Fehler');
-        }
-        
-        const result = await claudeResponse.json();
-        const textContent = result.content[0].text;
-        
-        // JSON aus der Antwort extrahieren
-        const jsonMatch = textContent.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            const parsedJson = JSON.parse(jsonMatch[0]);
-            
-            // Validierung und Standardwerte
-            parsedJson.diagnosisCertainty = parsedJson.diagnosisCertainty || 50;
-            parsedJson.minCost = parsedJson.minCost || 100;
-            parsedJson.maxCost = parsedJson.maxCost || 1000;
-            parsedJson.affectedCategories = parsedJson.affectedCategories || [];
-            parsedJson.selfCheckPossible = parsedJson.selfCheckPossible !== false;
-            parsedJson.selfCheckDifficulty = parsedJson.selfCheckDifficulty || "Mittel";
-            
-            return response.status(200).json(parsedJson);
-        } else {
-            throw new Error('Kein gültiges JSON in der Claude-Antwort gefunden');
-        }
-        
-    } catch (error) {
-        console.error("Claude Request Error:", error);
-        throw error;
-    }
+  possibleCauses: string[],                     // 2-4 plausible faults
+  mostLikelyCause: string,                      // single best guess
+  diagnosisCertainty: number,                   // 0-100 %
+  affectedCategories: string[],               // e.g. ["Electrics","Engine"]
+  costUncertaintyReason: string,              // plain text or ""
+  recommendation: string,
+  urgency: "Niedrig" | "Mittel" | "Hoch",
+  estimatedLabor: number,                     // hours, 0.00-99.99
+  minCost: number,
+  maxCost: number,
+  likelyRequiredParts: string[],
+  diagnosticStepsNeeded: string[],
+  selfCheckPossible: boolean,
+  selfCheckDifficulty: "Einfach" | "Mittel" | "Schwer",
+  diyTips: string[],
+  youtubeSearchQuery: string
+}
+\`\`\`
+`;
+
+async function callClaude(prompt: string, apiKey: string) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 1500,
+      temperature: 0,
+      system: SYSTEM_PROMPT_CLAUDE,
+      messages: [
+        { role: 'user', content: prompt }
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => {});
+    throw Object.assign(new Error(errorJson?.error?.message || `Claude HTTP ${res.status}`), { status: res.status });
+  }
+
+  const json = await res.json();
+  const text = json.content?.[0]?.text?.trim();
+  return JSON.parse(text);
 }
 
-async function handleGeminiRequest(prompt, apiKey, response) {
-    // Bestehende Gemini-Logik für Werkstatt-Reviews
-    const payload = { 
-        contents: [{ 
-            role: "user", 
-            parts: [{ text: prompt }] 
-        }],
-        generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-        }
-    };
-    
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-    
-    const geminiRes = await fetch(apiUrl, { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify(payload) 
-    });
-    
-    if (!geminiRes.ok) { 
-        const errorBody = await geminiRes.text(); 
-        console.error("Gemini API Error:", errorBody);
-        throw new Error('Gemini API Fehler');
-    }
-    
-    const result = await geminiRes.json();
-    
-    if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
-        const textResponse = result.candidates[0].content.parts[0].text;
-        const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
-        
-        if (jsonMatch) {
-            return response.status(200).json(JSON.parse(jsonMatch[0]));
-        }
-    }
-    
-    throw new Error('Keine gültige Antwort von Gemini erhalten');
+// --- Gemini -----------------------------------------------------------
+const SYSTEM_PROMPT_GEMINI = `You are a German automotive master mechanic.  
+Only return pure JSON matching the Claude schema provided (same keys, same meanings).`;
+
+async function callGemini(prompt: string, apiKey: string) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{
+        role: 'user',
+        parts: [
+          { text: SYSTEM_PROMPT_GEMINI },
+          { text: prompt }
+        ]
+      }],
+      generationConfig: { maxOutputTokens: 1500, temperature: 0, topP: 0.9 }
+    }),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => 'Gemini error');
+    throw Object.assign(new Error(errorText), { status: res.status });
+  }
+
+  const json = await res.json();
+  const text = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+  return JSON.parse(text);
 }
+```

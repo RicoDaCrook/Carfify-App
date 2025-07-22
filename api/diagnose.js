@@ -1,3 +1,4 @@
+```javascript
 export default async function handler(request, response) {
     if (request.method !== 'POST') {
         return response.status(405).json({ message: 'Method Not Allowed' });
@@ -10,158 +11,128 @@ export default async function handler(request, response) {
 
     try {
         const { history, mode = 'questions', category, currentCertainty } = request.body;
-        if (!history || !Array.isArray(history)) {
-            return response.status(400).json({ message: 'Ein "history" Array ist erforderlich.' });
+
+        if (!Array.isArray(history) || history.length === 0) {
+            return response.status(400).json({ message: 'Ein nicht-leeres "history" Array ist erforderlich.' });
         }
 
-        // Verschiedene Modi für die interaktive Diagnose
-        switch (mode) {
-            case 'analyze_categories':
-                return await handleCategoryAnalysis(history, anthropicApiKey, response);
-            case 'category_questions':
-                return await handleCategoryQuestions(history, category, currentCertainty, anthropicApiKey, response);
-            case 'final_summary':
-                return await handleFinalSummary(history, anthropicApiKey, response);
-            case 'freetext':
-                return await handleFreeTextQuestion(history, anthropicApiKey, response);
-            default: // Fallback für alte Logik, falls nötig
-                return await handleDiagnosticQuestions(history, anthropicApiKey, response);
-        }
+        const handlers = {
+            analyze_categories:  handleCategoryAnalysis,
+            category_questions:  handleCategoryQuestions,
+            final_summary:       handleFinalSummary,
+            freetext:            handleFreeTextQuestion,
+            questions:           handleDiagnosticQuestions
+        };
+
+        const handlerFn = handlers[mode] || handlers.questions;
+        return await handlerFn(history, { category, currentCertainty, anthropicApiKey, response });
 
     } catch (error) {
-        console.error("Server-Fehler in /api/diagnose:", error);
-        response.status(500).json({
+        console.error('Server-Fehler in /api/diagnose:', error);
+        return response.status(500).json({
             message: 'Diagnose konnte nicht verarbeitet werden',
             details: error.message
         });
     }
 }
 
-async function handleCategoryAnalysis(history, apiKey, response) {
-    const systemPrompt = `Du bist ein KFZ-Diagnose-Experte. Analysiere das Problem und entscheide:
-    1. Ist das Problem eindeutig EINER Kategorie zuzuordnen? Dann antworte mit singleCategory: true.
-    2. Oder müssen verschiedene Kategorien geprüft werden? Dann liste die relevanten auf.
-       Kategorien: Fahrwerk, Rad/Reifen, Motor, Getriebe, Bremsen, Elektronik, Karosserie, Innenraum.
-       WICHTIG: Erstelle NUR Kategorien die wirklich zum Problem passen. Keine künstlichen Kategorien!`;
+async function handleCategoryAnalysis(history, { anthropicApiKey, response }) {
+    const systemPrompt = `Du bist ein KFZ-Diagnose-Experte. Im Folgenden beschreibt der Nutzer sein Problem.
+Antworte AUSSCHLIEßLICH mit gültigem JSON:
+{"singleCategory":true,"categoryName":"KATEGORIE"} falls genau eine Kategorie passt,
+{"singleCategory":false,"categories":[{"name":"KATEGORIE1","probability":INT},{"name":"KATEGORIE2","probability":INT}]} falls mehrere infrage kommen.
+Erlaubte Kategorien: Fahrwerk, Rad/Reifen, Motor, Getriebe, Bremsen, Elektronik, Karosserie, Innenraum.`;
 
-    const prompt = `${history[0].parts[0].text}
-        Antworte NUR mit einem JSON-Objekt:
-    Entweder: {"singleCategory": true, "categoryName": "Name der Kategorie"}
-    Oder: {"singleCategory": false, "categories": [{"name": "Kategorie 1", "probability": 85}, {"name": "Kategorie 2", "probability": 15}]}`;
-
-    const claudeResponse = await makeClaudeRequest(systemPrompt, prompt, apiKey);
+    const prompt = history[0].parts[0].text.trim();
+    const claudeResponse = await makeClaudeRequest(systemPrompt, prompt, anthropicApiKey, 512);
     return response.status(200).json(claudeResponse);
 }
 
-async function handleCategoryQuestions(history, category, currentCertainty, apiKey, response) {
-    const conversationHistory = history.map(item => `${item.role}: ${item.parts[0].text}`).join('\n');
-    const questionCount = (conversationHistory.match(/model:/g) || []).length;
+async function handleCategoryQuestions(history, { category, currentCertainty, anthropicApiKey, response }) {
+    const conversation = history.map(item => `${item.role}: ${item.parts[0].text}`).join('\n');
+    const questionCount = (conversation.match(/model:/g) || []).length;
 
-    const systemPrompt = `Du bist ein KFZ-Diagnose-Experte. Du prüfst systematisch die Kategorie "${category}".
-    Stelle einfache, klare Fragen die OHNE Werkstatt beantwortet werden können.
-    Nach max. 5 Fragen oder wenn du sicher bist, beende die Kategorie-Prüfung.`;
+    const systemPrompt = `Du bist ein KFZ-Diagnose-Experte. Prüfe systematisch die Kategorie "${category}".
+Stelle maximal 5 fahrzeugbezogene Fragen, die ohne Werkstatt beantwortbar sind (Geräusche, Fahrverhalten, Warnleuchten etc.).
+Antworte AUSSCHLIEßLICH mit gültigem JSON:
+{"categoryComplete":true,"certaintyIncrease":0–25,"summary":"Zusammenfassung"} wenn abgeschlossen,
+{"nextQuestion":"Frage?","answers":["Ja","Nein","Weiß nicht"]} wenn mehr Infos nötig.`;
 
-    const prompt = `Bisheriger Dialog:
-    ${conversationHistory}
-    Aktuelle Diagnose-Sicherheit: ${currentCertainty}%
-    Fragen in dieser Kategorie bisher: ${questionCount}
-
-    Entscheide:
-    1. Wenn genug Infos für diese Kategorie: {"categoryComplete": true, "certaintyIncrease": ZAHL, "summary": "Was wir herausgefunden haben"}
-    2. Wenn mehr Infos nötig: {"nextQuestion": "Deine nächste Frage hier?", "answers": ["Ja", "Nein", "Weiß nicht"]}`;
-
-    const claudeResponse = await makeClaudeRequest(systemPrompt, prompt, apiKey);
+    const prompt = `Kontext:\n${conversation}\n\nAktuelle Sicherheit: ${currentCertainty}%\nKategorierelevante Fragen bisher: ${questionCount}`;
+    const claudeResponse = await makeClaudeRequest(systemPrompt, prompt, anthropicApiKey);
     return response.status(200).json(claudeResponse);
 }
 
-async function handleFinalSummary(history, apiKey, response) {
-    const systemPrompt = `Du bist ein KFZ-Diagnose-Experte. Erstelle eine finale, präzise Diagnose.`;
-    const prompt = `Basierend auf allen geprüften Kategorien und Antworten, erstelle die finale Diagnose:
-    ${history[0].parts[0].text}
-    Antworte mit JSON:
-    {
-        "finalDiagnosis": "Präzise Beschreibung des Problems",
-        "affectedParts": ["Betroffenes Teil 1", "Betroffenes Teil 2"],
-        "confidence": "Wie sicher bist du bei dieser Diagnose (Text)",
-        "nextSteps": "Was sollte als nächstes getan werden"
-    }`;
+async function handleFinalSummary(history, { anthropicApiKey, response }) {
+    const systemPrompt = `Du bist ein KFZ-Diagnose-Experte. Erstelle anhand des gesamten Gesprächsverlaufs eine präzise Diagnose.
+Antworte AUSSCHLIEßLICH mit gültigem JSON:
+{"finalDiagnosis":"Klare Problembeschreibung","affectedParts":["Teil 1","Teil 2"],"confidence":"Textuelle Einschätzung","nextSteps":"Sinnvolle weiteren Schritte ohne Werkstattbesuch"}.`;
 
-    const claudeResponse = await makeClaudeRequest(systemPrompt, prompt, apiKey);
+    const prompt = history.map(item => `${item.role}: ${item.parts[0].text}`).join('\n');
+    const claudeResponse = await makeClaudeRequest(systemPrompt, prompt, anthropicApiKey, 1200);
     return response.status(200).json(claudeResponse);
 }
 
-async function handleFreeTextQuestion(history, apiKey, response) {
-    const systemPrompt = `Du bist ein KFZ-Diagnose-Assistent. Beantworte die Frage des Nutzers hilfreich und präzise.`;
+async function handleFreeTextQuestion(history, { anthropicApiKey, response }) {
+    const systemPrompt = `Du bist ein KFZ-Diagnose-Assistent. Beantworte die gestellte Frage knapp, konkret und praxisorientiert.
+Antworte AUSSCHLIEßLICH mit gültigem JSON:
+{"answer":"Deine prägnante Antwort","suggestedNextSteps":["Erster Vorschlag","Zweiter Vorschlag"]}.`;
 
-    const lastUserMessage = history[history.length - 1].parts[0].text;
-    const contextHistory = history.slice(0, -1).map(item => `${item.role}: ${item.parts[0].text}`).join('\n');
+    const lastIdx = history.length - 1;
+    const context   = history.slice(0, lastIdx).map(item => `${item.role}: ${item.parts[0].text}`).join('\n');
+    const question  = history[lastIdx].parts[0].text;
 
-    const prompt = `Kontext: ${contextHistory}
-    Nutzerfrage: ${lastUserMessage}
-    Antworte als JSON:
-    {
-        "answer": "Deine hilfreiche Antwort",
-        "suggestedNextSteps": ["Vorschlag 1", "Vorschlag 2"]
-    }`;
-
-    const claudeResponse = await makeClaudeRequest(systemPrompt, prompt, apiKey);
+    const prompt = `Diskussionskontext:\n${context}\n\nNutzerfrage: ${question}`;
+    const claudeResponse = await makeClaudeRequest(systemPrompt, prompt, anthropicApiKey);
     return response.status(200).json(claudeResponse);
 }
 
-async function handleDiagnosticQuestions(history, apiKey, response) { // Legacy Function
-    const conversationHistory = history.map(item => `${item.role}: ${item.parts[0].text}`).join('\n');
-    const systemPrompt = `Du bist ein KFZ-Diagnose-Assistent. Stelle einfache, verständliche Fragen zur Problemeingrenzung.`;
-    const prompt = `GESPRÄCHSVERLAUF:
-    ${conversationHistory}
-    Entscheide den nächsten Schritt:
-    1. Wenn du GENUG Informationen hast: {"finalDiagnosis": "Präzise Diagnose", "certainty": ZAHL, "affectedParts": ["Teil1", "Teil2"]}
-    2. Wenn du MEHR Infos brauchst: {"nextQuestion": "Deine Frage?", "answers": ["Ja", "Nein", "Weiß nicht"]}`;
+async function handleDiagnosticQuestions(history, { anthropicApiKey, response }) {
+    const conversation = history.map(item => `${item.role}: ${item.parts[0].text}`).join('\n');
 
-    const claudeResponse = await makeClaudeRequest(systemPrompt, prompt, apiKey);
+    const systemPrompt = `Du bist ein fahrkundiger KFZ-Assistent. Stelle maximal 10 einfache Verständnisfragen um das Problem einzugrenzen.
+Antworte AUSSCHLIEßLICH mit gültigem JSON:
+{"finalDiagnosis":"Präzise Problembeschreibung","certainty":0–100,"affectedParts":["Teil1","Teil2"]} oder
+{"nextQuestion":"Fragetext?","answers":["Ja","Nein","Teilweise","Weiß nicht"]}.`;
+
+    const claudeResponse = await makeClaudeRequest(systemPrompt, conversation, anthropicApiKey);
     return response.status(200).json(claudeResponse);
 }
 
-async function makeClaudeRequest(systemPrompt, userPrompt, apiKey) {
+async function makeClaudeRequest(systemPrompt, userPrompt, apiKey, maxTokens = 1024) {
+    const payload = {
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: maxTokens,
+        temperature: 0.2,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+    };
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify(payload)
+    });
+
+    if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: { message: 'Netzwerkfehler' } }));
+        console.error('Claude API Error:', err);
+        throw new Error(err.error?.message || 'Claude API Fehler');
+    }
+
+    const { content } = await resp.json();
+    const raw = content?.[0]?.text || '';
+
     try {
-        const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify({
-                model: 'claude-3-5-sonnet-20241022',
-                max_tokens: 1024,
-                temperature: 0.3,
-                system: systemPrompt,
-                messages: [{
-                    role: 'user',
-                    content: userPrompt
-                }]
-            })
-        });
-
-        if (!claudeResponse.ok) {
-            const errorData = await claudeResponse.json();
-            console.error("Claude API Error:", errorData);
-            throw new Error(errorData.error?.message || 'Claude API Fehler');
-        }
-
-        const result = await claudeResponse.json();
-        const textContent = result.content[0].text;
-
-        const jsonMatch = textContent.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            return JSON.parse(jsonMatch[0]);
-        } else {
-            return {
-                error: "Keine strukturierte Antwort erhalten",
-                rawResponse: textContent
-            };
-        }
-    } catch (error) {
-        console.error("Claude Request Error:", error);
-        throw error;
+        const jsonMatch = raw.match(/\{[\s\S]*?\}/);
+        if (!jsonMatch) throw new Error('Kein JSON im Response gefunden');
+        return JSON.parse(jsonMatch[0]);
+    } catch {
+        throw new Error(`Antwort konnte nicht verarbeitet werden: ${raw}`);
     }
 }
+```
