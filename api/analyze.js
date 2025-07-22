@@ -2,16 +2,22 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import crypto from 'crypto';
 
-// Helper for consistent ETag generation
-const md5 = (data) => crypto.createHash('md5').update(data).digest('hex');
+const md5 = (data: string) =>
+  crypto.createHash('md5').update(data).digest('hex');
 
-export default async function handler(req, res) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
     return res.status(405).json({ success: false, message: 'Method Not Allowed' });
   }
 
-  const { prompt, useGemini = false } = req.body;
+  const { prompt, useGemini = false } = req.body as {
+    prompt?: string;
+    useGemini?: boolean;
+  };
 
   if (!prompt?.trim()) {
     return res.status(400).json({ success: false, message: '"prompt" ist erforderlich' });
@@ -24,61 +30,60 @@ export default async function handler(req, res) {
     return res.status(500).json({ success: false, message: 'Keine API-Schlüssel konfiguriert' });
   }
 
-  // Construct cache key
-  const cacheKey = md5(`${prompt}-${useGemini}`);
-  // Very short cache‐ttl because car symptoms evolve quickly
+  const isGemini = useGemini || /\brezension|review\b/i.test(prompt);
+
+  const cacheKey = md5(`${prompt}-${isGemini}`);
   res.setHeader('Cache-Control', 'private, max-age=60, stale-while-revalidate=30');
   res.setHeader('ETag', `"${cacheKey}"`);
 
   if (req.headers['if-none-match'] === `"${cacheKey}"`) {
-    return res.status(304).json({});
+    return res.status(304).send('');
   }
-
-  // Decide which model to use
-  const isGemini = useGemini || /\brezension|review\b/i.test(prompt);
 
   try {
     const data = isGemini
-      ? await callGemini(prompt, geminiApiKey || '')
-      : await callClaude(prompt, anthropicApiKey || '');
+      ? await callGemini(prompt.trim(), geminiApiKey!)
+      : await callClaude(prompt.trim(), anthropicApiKey!);
 
     return res.status(200).json(data);
   } catch (err: any) {
     console.error('[analyze]', err.message || err);
-    return res
-      .status(err.status || 500)
-      .json({ success: false, message: err.message || 'Server-Fehler' });
+    const code = err.status || 500;
+    const msg = err.message || 'Server-Fehler';
+    return res.status(code).json({ success: false, message: msg });
   }
 }
 
-// --- Claude ----------------------------------------------------------
 const SYSTEM_PROMPT_CLAUDE = `You are an experienced automotive master mechanic (KFZ-Meister).  
-Return only valid JSON matching the below schema. Never wrap with triple backticks.
+Return only pure, valid JSON matching this schema:
 
-Schema:
-\`\`\`
 {
-  possibleCauses: string[],                     // 2-4 plausible faults
-  mostLikelyCause: string,                      // single best guess
-  diagnosisCertainty: number,                   // 0-100 %
-  affectedCategories: string[],               // e.g. ["Electrics","Engine"]
-  costUncertaintyReason: string,              // plain text or ""
-  recommendation: string,
-  urgency: "Niedrig" | "Mittel" | "Hoch",
-  estimatedLabor: number,                     // hours, 0.00-99.99
-  minCost: number,
-  maxCost: number,
-  likelyRequiredParts: string[],
-  diagnosticStepsNeeded: string[],
-  selfCheckPossible: boolean,
-  selfCheckDifficulty: "Einfach" | "Mittel" | "Schwer",
-  diyTips: string[],
-  youtubeSearchQuery: string
-}
-\`\`\`
-`;
+  "possibleCauses": ["<string>"],
+  "mostLikelyCause": "<string>",
+  "diagnosisCertainty": 0-100,
+  "affectedCategories": ["<string>"],
+  "costUncertaintyReason": "<string>|\"\"",
+  "recommendation": "<string>",
+  "urgency": "Niedrig|Mittel|Hoch",
+  "estimatedLabor": 0.00-99.99,
+  "minCost": 0,
+  "maxCost": 0,
+  "likelyRequiredParts": ["<string>"],
+  "diagnosticStepsNeeded": ["<string>"],
+  "selfCheckPossible": true|false,
+  "selfCheckDifficulty": "Einfach|Mittel|Schwer",
+  "diyTips": ["<string>"],
+  "youtubeSearchQuery": "<string>"
+}`;
 
 async function callClaude(prompt: string, apiKey: string) {
+  const body = {
+    model: 'claude-3-5-sonnet-20241022',
+    max_tokens: 1500,
+    temperature: 0,
+    system: SYSTEM_PROMPT_CLAUDE,
+    messages: [{ role: 'user', content: prompt }],
+  };
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -86,55 +91,46 @@ async function callClaude(prompt: string, apiKey: string) {
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     },
-    body: JSON.stringify({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 1500,
-      temperature: 0,
-      system: SYSTEM_PROMPT_CLAUDE,
-      messages: [
-        { role: 'user', content: prompt }
-      ],
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
-    const errorJson = await res.json().catch(() => {});
-    throw Object.assign(new Error(errorJson?.error?.message || `Claude HTTP ${res.status}`), { status: res.status });
+    const err = await res.json().catch(() => res.statusText);
+    throw Object.assign(new Error(err?.error?.message || res.statusText), { status: res.status });
   }
 
   const json = await res.json();
-  const text = json.content?.[0]?.text?.trim();
-  return JSON.parse(text);
+  return JSON.parse(json.content?.[0]?.text);
 }
 
-// --- Gemini -----------------------------------------------------------
-const SYSTEM_PROMPT_GEMINI = `You are a German automotive master mechanic.  
-Only return pure JSON matching the Claude schema provided (same keys, same meanings).`;
+const SYSTEM_PROMPT_GEMINI = 'Return pure JSON with the same keys as the Claude schema.';
 
 async function callGemini(prompt: string, apiKey: string) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{
+  const body = {
+    contents: [
+      {
         role: 'user',
         parts: [
           { text: SYSTEM_PROMPT_GEMINI },
-          { text: prompt }
-        ]
-      }],
-      generationConfig: { maxOutputTokens: 1500, temperature: 0, topP: 0.9 }
-    }),
+          { text: prompt },
+        ],
+      },
+    ],
+    generationConfig: { maxOutputTokens: 1500, temperature: 0, topP: 0.9 },
+  };
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
-    const errorText = await res.text().catch(() => 'Gemini error');
-    throw Object.assign(new Error(errorText), { status: res.status });
+    const err = await res.text().catch(() => 'Gemini error');
+    throw Object.assign(new Error(err), { status: res.status });
   }
 
   const json = await res.json();
-  const text = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-  return JSON.parse(text);
+  return JSON.parse(json.candidates[0].content.parts[0].text);
 }
 ```
