@@ -2,29 +2,27 @@
 /* ============================================================
    /backend/api/analyze.php
    Carfify – Vehicle Problem Analyzer (Gemini API Integration)
-   Der Endpunkt nimmt ein Diagnose-Ergebnis (summary, symptoms,
-   codes) und liefert:
-   • eine strukturierte Problem-Beschreibung
-   • verständliche Ursachen-Hinweise
-   • Risikoeinschätzung (LOW/MEDIUM/HIGH)
-   • visuelle Anleitungs-Links (ggf. eigene Guides)
-   • geschätzte Reparaturschritte
-   • Preisbereich (Parts + Labour)
+   Vercel-Deployment Ready Edition
    ============================================================ */
 
-// Kein Direktzugriff
-if (realpath(__FILE__) === realpath($_SERVER['DOCUMENT_ROOT'] . $_SERVER['SCRIPT_NAME'])) {
+// Kein Direktzugriff - Vercel-kompatibel
+if (PHP_SAPI === 'cli-server' && basename(__FILE__) === basename($_SERVER['SCRIPT_NAME'])) {
     http_response_code(404);
     exit('404 Not Found');
 }
 
-require_once __DIR__ . '/../security/cors.php';   // CORS-Headers
-require_once __DIR__ . '/../config/database.php'; // PostgreSQL-PDO
+require_once __DIR__ . '/../security/cors.php';
+require_once __DIR__ . '/../config/database.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
+// === ERROR HANDLING FÜR VERCEL ===
+set_error_handler(function($errno, $errstr) {
+    throw new ErrorException($errstr, 500);
+});
+
 // === AUTH / VALIDATION ===
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if ($method !== 'POST') {
     http_response_code(405);
     echo json_encode(['error' => 'Method not allowed']);
@@ -32,12 +30,17 @@ if ($method !== 'POST') {
 }
 
 // JSON einlesen
-$rawBody                  = file_get_contents('php://input');
-$data                     = json_decode($rawBody, true);
-
-if (!$data || !isset($data['diagnosis_result'])) {
+$rawBody = file_get_contents('php://input');
+if (!$rawBody) {
     http_response_code(400);
-    echo json_encode(['error' => 'Invalid payload. Provide "diagnosis_result" object']);
+    echo json_encode(['error' => 'Empty request body']);
+    exit;
+}
+
+$data = json_decode($rawBody, true);
+if (!$data || !isset($data['diagnosis_result']) || !is_array($data['diagnosis_result'])) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid JSON payload. Provide "diagnosis_result" as object']);
     exit;
 }
 
@@ -46,19 +49,25 @@ if (!$data || !isset($data['diagnosis_result'])) {
 // ============================================================
 
 /**
- * Aufruf der Gemini-API (Google AI Studio / Vertex)
- * @param string $prompt
- * @return mixed
+ * Vercel-kompatible Gemini API Call
  */
-function callGeminiAPI(string $prompt)
+function callGeminiAPI(string $prompt): string
 {
-    $apiKey       = $_ENV['GOOGLE_API_KEY'] ?? '';      // Environment-Variable
+    $apiKey = $_ENV['GOOGLE_API_KEY'] ?? false;
+    
+    // Fallback auf Vercel Environment Variables
+    if (!$apiKey && function_exists('vercel_env')) {
+        $apiKey = vercel_env('GOOGLE_API_KEY');
+    }
+    
+    // Final check
     if (!$apiKey) {
-        throw new Exception('Google API-Key is missing');
+        throw new Exception('GOOGLE_API_KEY is not configured');
     }
 
     $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={$apiKey}";
-    $payload  = [
+    
+    $payload = [
         'contents' => [
             [
                 'parts' => [
@@ -67,47 +76,40 @@ function callGeminiAPI(string $prompt)
             ]
         ],
         'generationConfig' => [
-            'temperature'      => 0.1,
-            'topK'             => 1,
-            'maxOutputTokens'  => 1500
+            'temperature' => 0.1,
+            'topK' => 1,
+            'maxOutputTokens' => 1500
         ]
     ];
 
-    $ch = curl_init();
-    curl_setopt_array($ch, [
-        CURLOPT_URL            => $endpoint,
-        CURLOPT_POST           => true,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => 15,
-        CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-        CURLOPT_POSTFIELDS     => json_encode($payload)
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'header' => [
+                'Content-Type: application/json',
+                'User-Agent: Carfify/1.0 (Vercel-PHP)'
+            ],
+            'content' => json_encode($payload),
+            'timeout' => 15
+        ]
     ]);
 
-    $response   = curl_exec($ch);
-    $httpStatus = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $err        = curl_error($ch);
-    curl_close($ch);
-
-    if ($err || $httpStatus >= 400) {
-        throw new Exception('Gemini call failed');
+    $response = @file_get_contents($endpoint, false, $context);
+    if ($response === false) {
+        throw new Exception('Gemini API call failed');
     }
 
-    $json = json_decode($response, true);
-    if (!isset($json['candidates'][0]['content']['parts'][0]['text'])) {
-        throw new Exception('Unexpected Gemini response structure');
-    }
-
-    return $json['candidates'][0]['content']['parts'][0]['text'];
+    return $response;
 }
 
 // ============================================================
 //        LOAD & PARSE INPUT
 // ============================================================
-$input                    = $data['diagnosis_result'];
+$input = $data['diagnosis_result'];
 
-$summary = trim($input['summary']         ?? '');
-$codes   = $input['dtc_codes']           ?? [];
-$symptoms= $input['symptoms']            ?? [];
+$summary = trim($input['summary'] ?? '');
+$codes = array_filter(array_map('trim', $input['dtc_codes'] ?? []));
+$symptoms = array_filter(array_map('trim', $input['symptoms'] ?? []));
 
 if (!$summary && empty($codes) && empty($symptoms)) {
     http_response_code(422);
@@ -119,69 +121,91 @@ if (!$summary && empty($codes) && empty($symptoms)) {
 //        GENERATE PROMPT FOR GEMINI
 // ============================================================
 $prompt = <<<EOT
-Du bist ein hilfreicher KI-Assistent für Carfify und spezialisiert auf verständliche Auto-Beschreibungen für „völlige Autolaien“.
+You are an AI assistant for Carfify, specializing in clear vehicle problem descriptions for absolute car laymen.
 
-Aufgabe: Erstelle eine strukturierte Ausgabe im JSON-Format (keine Erklärung, nur JSON).
+Task: Create structured JSON output in German language ONLY.
 
-Eingabe:
-Zusammenfassung (Englisch oder Deutsch): {$summary}
-Fehlercodes: " . (empty($codes) ? 'keine' : implode(', ', $codes)) . "
-Symptome: " . (empty($symptoms) ? 'keine' : implode(', ', $symptoms)) . "
+Input:
+Summary: {$summary}
+DTC Codes: " . (empty($codes) ? 'none' : implode(', ', $codes)) . "
+Symptoms: " . (empty($symptoms) ? 'none' : implode(', ', $symptoms)) . "
 
-Gib für alle Feldern deutschsprachige Antworten.
+Return ONLY this exact JSON structure with German values:
 
-Schema:
 {
-  "problem_desc": "Kurze klare Beschreibung für Laien",
-  "probable_causes": ["Ursache 1", "Ursache 2"],
+  "problem_desc": "Clear problem description for laymen, max 150 chars",
+  "probable_causes": ["Cause 1", "Cause 2", "Cause 3"],
   "risk_level": "LOW|MEDIUM|HIGH",
-  "repair_instructions": ["Stichpunkt 1", "Stichpunkt 2"],
-  "estimated_cost_range": { "min_eur": 50, "max_eur": 200, "comment": "günstigste vs Werkstatt" },
-  "guide_videos": ["https://carfify.de/guides(:random-id)"],
-  "required_tools": ["Schlüssel 13er", "..."]
+  "repair_instructions": ["Step 1", "Step 2", "Step 3"],
+  "estimated_cost_range": {"min_eur": 50, "max_eur": 500, "comment": "DIY vs workshop"},
+  "guide_videos": ["https://carfify.de/guide/random-id"],
+  "required_tools": ["13er Steckschlüssel", "Schraubendreher", "Wagenheber"]
 }
 EOT;
 
+// ============================================================
+//        GEMINI API CALL
+// ============================================================
 try {
-    $rawGemini = callGeminiAPI($prompt);
-    preg_match('/\{.*\}/s', $rawGemini, $matches);      // JSON extrahieren, falls Markdown vorhanden
-    $jsonStr   = $matches[0] ?? '';
-    $gemini    = json_decode($jsonStr, true);
+    $geminiResponse = callGeminiAPI($prompt);
+    $jsonData = json_decode($geminiResponse, true);
+    
+    if (!is_array($jsonData) || !isset($jsonData['candidates'][0]['content']['parts'][0]['text'])) {
+        throw new Exception('Invalid Gemini response structure');
+    }
+    
+    $rawGemini = $jsonData['candidates'][0]['content']['parts'][0]['text'];
+    
+    // JSON extrahieren
+    preg_match('/\{.*\}/s', $rawGemini, $matches);
+    if (!$matches) {
+        throw new Exception('No JSON found in Gemini response');
+    }
+    
+    $analysisData = json_decode($matches[0], true);
+    if (!is_array($analysisData)) {
+        throw new Exception('Invalid JSON structure from Gemini');
+    }
+    
 } catch (Exception $e) {
-    http_response_code(502);
-    echo json_encode(['error' => 'Gemini currently unavailable', 'details' => $e->getMessage()]);
+    http_response_code(503);
+    echo json_encode([
+        'error' => 'Service temporarily unavailable',
+        'message' => 'AI analysis failed',
+        'timestamp' => date('c')
+    ]);
     exit;
 }
 
-// Fallback-Werte
-$analysis = [
-    'problem_desc'        => $gemini['problem_desc']       ?? 'Problem konnte nicht identifiziert werden',
-    'probable_causes'     => $gemini['probable_causes']    ?? [],
-    'risk_level'          => strtoupper($gemini['risk_level'] ?? 'MEDIUM'),
-    'repair_instructions' => $gemini['repair_instructions'] ?? [],
-    'estimated_cost_range'=> $gemini['estimated_cost_range'] ?? ['min_eur' => 0, 'max_eur' => 0, 'comment'=> 'n/a'],
-    'guide_videos'        => $gemini['guide_videos']         ?? [],
-    'required_tools'      => $gemini['required_tools']       ?? []
-];
-
 // ============================================================
-//        SAVE ANALYSIS TO DATABASE (OPTIONAL)
+//        DATABASE HANDLING (OPTIONAL - FÜR VERCEL)
 // ============================================================
-$sessionId = uniqid('ana_');
-$db = new Carfify\Database();  // aus config/database.php
-$pdo = $db->getConnection();
-
-$stmt = $pdo->prepare("
-  INSERT INTO analysis_results (session_id, raw_input, result_json, created_at)
-  VALUES (?, ?, NOW())
-");
-$stmt->execute([$sessionId, $rawBody, json_encode($analysis)]);
+// Unter Vercel: Für echte Persistenz PostgreSQL, MongoDB oder Supabase nutzen
+if (isset($_ENV['DATABASE_URL']) && !empty($_ENV['DATABASE_URL'])) {
+    try {
+        $sessionId = uniqid('carfify_');
+        $db = new Carfify\Database();
+        $pdo = $db->getConnection();
+        
+        $stmt = $pdo->prepare("
+            INSERT INTO analysis_results (session_id, raw_input, result_json, created_at) 
+            VALUES (?, ?, ?, NOW())
+        ");
+        $stmt->execute([$sessionId, $rawBody, json_encode($analysisData)]);
+    } catch (Exception $e) {
+        // Silent fail - nicht kritisch für die API
+    }
+}
 
 // ============================================================
 //        RESPONSE
 // ============================================================
-echo json_encode([
-    'analysis'   => $analysis,
-    'session_id' => $sessionId,
-    'api_version'=> '1.0'
-]);
+$response = [
+    'analysis' => $analysisData,
+    'session_id' => $sessionId ?? uniqid('carfify_'),
+    'api_version' => '1.0-vercel',
+    'timestamp' => date('c')
+];
+
+// Pretty print für Entwicklung
+echo json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

@@ -1,65 +1,52 @@
 <?php
 /**
  * import_kba.php
- * 
+ *
  * Professional KBA (HSN/TSN) Datenimport-Script
- * 
+ *
  * Lädt die aktuellen KBA-Schlüssel vom KBA herunter,
  * parst die Daten und speichert sie in eine PostgreSQL-Datenbank.
- * Prüft auf Duplikate und bietet einen vierteljährlichen Update-Mechanismus.
- * 
+ *
  * Usage: php import_kba.php [--force-update] [--dry-run] [--help]
- * Web-Aufruf per: <webserver>/backend/import_kba.php?token=<secure_token>
- * 
+ * Web-Aufruf: https://<domain>/backend/import_kba.php?token=<secure_token>
+ *
  * @author Carfify Team
- * @version 1.0.0
+ * @version 1.1.0
  */
 
-// Security Check - Nur CLI oder mit gültigem Token aufrufbar
-if (php_sapi_name() !== 'cli') {
+if (!defined('STDIN') && !in_array(php_sapi_name(), ['cli', 'cli-server'])) {
     $secureToken = 'carfify_kba_secure_2024_' . date('Y-m');
-    
     if (!isset($_GET['token']) || $_GET['token'] !== $secureToken) {
         http_response_code(403);
-        die('Access Denied - Invalid Token');
+        exit('Access Denied – Invalid Token');
     }
-    
-    // Log web execution
     error_log("[KBA Import] Web access initiated at " . date('Y-m-d H:i:s'));
 }
 
-// Config und Settings
-set_time_limit(300); // 5 Minuten Max Execution Time
+set_time_limit(300);
 ini_set('memory_limit', '512M');
 
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/classes/Database.php';
 
-/**
- * KBA Import Manager
- */
 class KBAImporter {
     private $db;
     private $config;
     private $stats = [
-        'total_rows' => 0,
-        'new_entries' => 0,
+        'total_rows'    => 0,
+        'new_entries'   => 0,
         'updated_entries' => 0,
         'skipped_entries' => 0,
-        'errors' => 0
+        'errors'        => 0,
     ];
-    
+
     public function __construct() {
         $this->config = require __DIR__ . '/config/database.php';
-        $this->db = new Database($this->config['database']);
-        
+        $this->db     = new Database($this->config['database']);
         $this->initializeDatabase();
     }
-    
-    /**
-     * Initialisiert die Datenbank-Tabelle, falls nicht existiert
-     */
-    private function initializeDatabase() {
+
+    private function initializeDatabase(): void {
         $sql = "
         CREATE TABLE IF NOT EXISTS vehicles (
             id SERIAL PRIMARY KEY,
@@ -78,134 +65,92 @@ class KBAImporter {
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(hsn, tsn)
         );
-        
-        CREATE INDEX IF NOT EXISTS idx_vehicles_hsn ON vehicles(hsn);
-        CREATE INDEX IF NOT EXISTS idx_vehicles_tsn ON vehicles(tsn);
+
+        CREATE INDEX IF NOT EXISTS idx_vehicles_hsn  ON vehicles(hsn);
+        CREATE INDEX IF NOT EXISTS idx_vehicles_tsn  ON vehicles(tsn);
         CREATE INDEX IF NOT EXISTS idx_vehicles_make ON vehicles(make);
         CREATE INDEX IF NOT EXISTS idx_vehicles_model ON vehicles(model);
         ";
-        
-        try {
-            $this->db->exec($sql);
-            $this->logMessage("Database initialized successfully");
-        } catch (Exception $e) {
-            $this->logError("Database initialization failed: " . $e->getMessage());
-            throw $e;
-        }
+
+        $this->db->exec($sql);
+        $this->logMessage('Database initialized successfully');
     }
-    
-    /**
-     * Downloader für KBA-Daten
-     */
-    private function downloadKBAData() {
-        $kbaUrl = 'https://www.kba.de/SharedDocs/Downloads/DE/Statistik/Fahrzeuge/FZ/kennzeichen/kba_stand_basisdaten_csv.csv?__blob=publicationFile&v=11';
-        $tempFile = sys_get_temp_dir() . '/kba_data_' . date('Y-m-d') . '.csv';
-        
-        $this->logMessage("Downloading KBA data from: $kbaUrl");
-        
-        $context = stream_context_create([
+
+    private function downloadKBAData(): string {
+        $kbaUrl  = 'https://www.kba.de/SharedDocs/Downloads/DE/Statistik/Fahrzeuge/FZ/kennzeichen/kba_stand_basisdaten_csv.csv?__blob=publicationFile&v=11';
+        $tmpFile = sys_get_temp_dir() . '/kba_' . date('Y-m-d') . '.csv';
+
+        $ctx = stream_context_create([
             'http' => [
-                'method' => 'GET',
+                'method'  => 'GET',
                 'timeout' => 30,
-                'user_agent' => 'Carfify KBA Importer 1.0'
-            ]
+                'header'  => "User-Agent: Carfify-KBA/1.1\r\n",
+            ],
         ]);
-        
-        $data = file_get_contents($kbaUrl, false, $context);
-        
-        if ($data === false) {
-            throw new Exception("Failed to download KBA data from $kbaUrl");
+
+        $csv = file_get_contents($kbaUrl, false, $ctx);
+        if ($csv === false) {
+            throw new RuntimeException("KBA download failed");
         }
-        
-        // Speichere temporär als UTF-8 konvertiert
-        $utf8Data = mb_convert_encoding($data, 'UTF-8', 'ISO-8859-1');
-        file_put_contents($tempFile, $utf8Data);
-        
-        $this->logMessage("KBA data downloaded and saved to: $tempFile");
-        return $tempFile;
+
+        file_put_contents($tmpFile, mb_convert_encoding($csv, 'UTF-8', 'ISO-8859-1'));
+        $this->logMessage("KBA data downloaded: $tmpFile");
+
+        return $tmpFile;
     }
-    
-    /**
-     * Parst die CSV-Datei und bereitet Daten vor
-     */
-    private function parseCSV($csvFile) {
-        $handle = fopen($csvFile, 'r');
-        
-        if (!$handle) {
-            throw new Exception("Cannot open CSV file: $csvFile");
+
+    private function parseCSV(string $csvFile): array {
+        $fh       = fopen($csvFile, 'r');
+        $vehicles = $processed = [];
+
+        if (!$fh) {
+            throw new RuntimeException("Cannot open $csvFile");
         }
-        
-        $vehicles = [];
-        $headers = [];
-        
-        // Lese Header-Zeile
-        $rawHeaders = fgetcsv($handle, 0, ';');
-        if (!$rawHeaders) {
-            throw new Exception("Cannot read CSV headers");
-        }
-        
-        // Header normalisieren
-        $headers = array_map(function($h) {
+
+        $headers = array_map(function ($h) {
             $h = strtolower(trim($h));
             $h = str_replace(['ä', 'ö', 'ü', 'ß'], ['ae', 'oe', 'ue', 'ss'], $h);
-            $h = preg_replace('/[^a-z0-9_]/', '_', $h);
-            return $h;
-        }, $rawHeaders);
-        
-        // Cache für bereits verarbeitete HSN/TSN Kombinationen
-        $processed = [];
-        
-        while (($row = fgetcsv($handle, 0, ';')) !== false) {
+            return preg_replace('/[^a-z0-9_]/', '_', $h);
+        }, fgetcsv($fh, 0, ';'));
+
+        while (($row = fgetcsv($fh, 0, ';')) !== false) {
             $this->stats['total_rows']++;
-            
             if (count($row) < count($headers)) {
-                $this->logMessage("Skipping incomplete row #{$this->stats['total_rows']}");
                 continue;
             }
-            
-            $vehicle = array_combine($headers, $row);
-            
-            // Extrahiere und validiere Daten
-            $hsn = str_pad(trim($vehicle['hsn']), 4, '0', STR_PAD_LEFT);
-            $tsn = str_pad(trim($vehicle['tsn']), 3, '0', STR_PAD_LEFT);
-            
-            // Prüfe auf Duplikat in diesem Durchlauf
-            $key = "$hsn-$tsn";
+
+            $v      = array_combine($headers, $row);
+            $hsn    = str_pad(trim($v['hsn']), 4, '0', STR_PAD_LEFT);
+            $tsn    = str_pad(trim($v['tsn']), 3, '0', STR_PAD_LEFT);
+            $key    = "$hsn-$tsn";
+
             if (isset($processed[$key])) {
                 continue;
             }
             $processed[$key] = true;
-            
-            // Extrahiere Hersteller (letzte 3 Stellen TSN)
-            $manufacturerCode = substr($tsn, 0, 1);
-            $make = $this->extractManufacturer($manufacturerCode);
-            
+
             $vehicles[] = [
-                'hsn' => $hsn,
-                'tsn' => $tsn,
-                'make' => $make,
-                'model' => trim($vehicle['handelsbezeichung']),
-                'variant' => trim($vehicle['typ']),
-                'engine' => trim($vehicle['motor'] ?? ''),
-                'power_kw' => (int)($vehicle['kw'] ?? 0),
-                'power_ps' => (int)($vehicle['ps1'] ?? 0),
-                'fuel_type' => $this->normalizeFuelType($vehicle['kraftstoffart']),
-                'year_from' => (int)($vehicle['von_erstm'] ?? 0),
-                'year_to' => (int)($vehicle['bis_erstm'] ?? 0)
+                'hsn'       => $hsn,
+                'tsn'       => $tsn,
+                'make'      => $this->extractManufacturer(substr($tsn, 0, 1)),
+                'model'     => trim($v['handelsbezeichung'] ?? ''),
+                'variant'   => trim($v['typ'] ?? ''),
+                'engine'    => trim($v['motor'] ?? ''),
+                'power_kw'  => (int)($v['kw'] ?? 0),
+                'power_ps'  => (int)($v['ps1'] ?? 0),
+                'fuel_type' => $this->normalizeFuelType($v['kraftstoffart']),
+                'year_from' => (int)($v['von_erstm'] ?? 0),
+                'year_to'   => (int)($v['bis_erstm'] ?? 0),
             ];
         }
-        
-        fclose($handle);
-        
-        $this->logMessage("Parsed " . count($vehicles) . " unique vehicles from CSV");
+        fclose($fh);
+
+        $this->logMessage('Parsed ' . count($vehicles) . ' unique vehicles');
         return $vehicles;
     }
-    
-    /**
-     * Extrahiert Hersteller aus TSN
-     */
-    private function extractManufacturer($code) {
-        $manufacturers = [
+
+    private function extractManufacturer(string $code): string {
+        $map = [
             '0' => 'Sonstige',
             '1' => 'VW',
             '2' => 'Opel',
@@ -215,224 +160,145 @@ class KBAImporter {
             '6' => 'Audi',
             '7' => 'Porsche',
             '8' => 'Nissan',
-            '9' => 'Renault'
-            // Vollständige Liste könnte aus Datenbank oder Config geladen werden
+            '9' => 'Renault',
         ];
-        
-        return $manufacturers[$code] ?? 'Sonstige';
+        return $map[$code] ?? 'Sonstige';
     }
-    
-    /**
-     * Normalisiert Kraftstoff-Typ
-     */
-    private function normalizeFuelType($fuel) {
+
+    private function normalizeFuelType(string $fuel): string {
         $fuel = strtolower(trim($fuel));
-        
-        $mapping = [
+        foreach ([
             'diesel' => 'Diesel',
-            'otto' => 'Benzin',
-            'unbleif' => 'Benzin',
-            'gas' => 'Gas',
-            'elektro' => 'Elektro',
+            'otto'   => 'Benzin',
+            'unbleif'=> 'Benzin',
+            'gas'    => 'Gas',
+            'elektro'=> 'Elektro',
             'hybrid' => 'Hybrid',
-            'ethanol' => 'Ethanol'
-        ];
-        
-        foreach ($mapping as $key => $value) {
-            if (strpos($fuel, $key) !== false) {
-                return $value;
+            'ethanol'=> 'Ethanol',
+        ] as $needle => $type) {
+            if (str_contains($fuel, $needle)) {
+                return $type;
             }
         }
-        
         return 'Unbekannt';
     }
-    
-    /**
-     * Importiert Fahrzeugdaten in die Datenbank
-     */
-    private function importVehicles($vehicles) {
-        $this->logMessage("Starting vehicle import...");
-        
-        $stmt = $this->db->prepare("
-            INSERT INTO vehicles (
-                hsn, tsn, make, model, variant, engine, 
-                power_kw, power_ps, fuel_type, year_from, year_to
-            ) VALUES (
-                :hsn, :tsn, :make, :model, :variant, :engine,
-                :power_kw, :power_ps, :fuel_type, :year_from, :year_to
-            )
-            ON CONFLICT (hsn, tsn) DO UPDATE SET
-                make = EXCLUDED.make,
-                model = EXCLUDED.model,
-                variant = EXCLUDED.variant,
-                engine = EXCLUDED.engine,
-                power_kw = EXCLUDED.power_kw,
-                power_ps = EXCLUDED.power_ps,
-                fuel_type = EXCLUDED.fuel_type,
-                year_from = EXCLUDED.year_from,
-                year_to = EXCLUDED.year_to,
-                updated_at = CURRENT_TIMESTAMP
-        ");
-        
-        foreach ($vehicles as $idx => $vehicle) {
+
+    private function importVehicles(array $vehicles): void {
+        $sql = "
+        INSERT INTO vehicles (
+            hsn,tsn,make,model,variant,engine,power_kw,power_ps,fuel_type,year_from,year_to
+        ) VALUES (
+            :hsn,:tsn,:make,:model,:variant,:engine,:power_kw,:power_ps,:fuel_type,:year_from,:year_to
+        ) ON CONFLICT (hsn,tsn) DO UPDATE SET
+            make       = EXCLUDED.make,
+            model      = EXCLUDED.model,
+            variant    = EXCLUDED.variant,
+            engine     = EXCLUDED.engine,
+            power_kw   = EXCLUDED.power_kw,
+            power_ps   = EXCLUDED.power_ps,
+            fuel_type  = EXCLUDED.fuel_type,
+            year_from  = EXCLUDED.year_from,
+            year_to    = EXCLUDED.year_to,
+            updated_at = CURRENT_TIMESTAMP
+        ";
+
+        $stmt = $this->db->prepare($sql);
+        foreach ($vehicles as $i => $v) {
             try {
-                $result = $stmt->execute([
-                    ':hsn' => $vehicle['hsn'],
-                    ':tsn' => $vehicle['tsn'],
-                    ':make' => $vehicle['make'],
-                    ':model' => $vehicle['model'],
-                    ':variant' => $vehicle['variant'],
-                    ':engine' => $vehicle['engine'],
-                    ':power_kw' => $vehicle['power_kw'],
-                    ':power_ps' => $vehicle['power_ps'],
-                    ':fuel_type' => $vehicle['fuel_type'],
-                    ':year_from' => $vehicle['year_from'],
-                    ':year_to' => $vehicle['year_to']
+                $stmt->execute([
+                    ':hsn'       => $v['hsn'],
+                    ':tsn'       => $v['tsn'],
+                    ':make'      => $v['make'],
+                    ':model'     => $v['model'],
+                    ':variant'   => $v['variant'],
+                    ':engine'    => $v['engine'],
+                    ':power_kw'  => $v['power_kw'],
+                    ':power_ps'  => $v['power_ps'],
+                    ':fuel_type' => $v['fuel_type'],
+                    ':year_from' => $v['year_from'],
+                    ':year_to'   => $v['year_to'],
                 ]);
-                
-                if ($result && $stmt->rowCount() > 0) {
+
+                if ($stmt->rowCount() > 0) {
                     $this->stats['new_entries']++;
                 } else {
                     $this->stats['updated_entries']++;
                 }
-                
-                if (($idx + 1) % 1000 === 0) {
-                    $this->logMessage("Processed " . ($idx + 1) . " vehicles...");
+
+                if (($i + 1) % 1000 === 0) {
+                    $this->logMessage('Processed ' . ($i + 1) . ' vehicles');
                 }
-                
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 $this->stats['errors']++;
-                $this->logError("Error processing {$vehicle['hsn']} - {$vehicle['tsn']}: " . $e->getMessage());
+                $this->logError("Row error: " . $e->getMessage());
             }
         }
     }
-    
-    /**
-     * Prüft, ob ein Update notwendig ist
-     */
-    private function shouldUpdate($force = false) {
-        if ($force) {
-            return true;
-        }
-        
-        // Prüfe letztes Update
-        $stmt = $this->db->prepare("
-            SELECT MAX(updated_at) as last_update 
-            FROM vehicles
-        ");
-        $result = $stmt->execute();
-        $lastUpdate = $result->fetchColumn();
-        
-        if (!$lastUpdate) {
-            return true; // Erster Import
-        }
-        
-        // Letztes Update vor 3 Monaten?
-        $threeMonthsAgo = date('Y-m-d H:i:s', strtotime('-3 months'));
-        
-        return $lastUpdate < $threeMonthsAgo;
+
+    private function shouldUpdate(bool $force = false): bool {
+        if ($force) return true;
+
+        $last = $this->db->query("
+            SELECT MAX(updated_at) FROM vehicles
+        ")->fetchColumn();
+
+        return !$last || $last < date('Y-m-d H:i:s', strtotime('-3 months'));
     }
-    
-    /**
-     * Führt den kompletten Import durch
-     */
-    public function run($force = false, $dryRun = false) {
+
+    public function run(bool $force = false, bool $dry = false): array {
         try {
-            // Prüfe Update-Bedarf
             if (!$this->shouldUpdate($force)) {
-                $this->logMessage("No update needed. Last update within 3 months.");
-                return [
-                    'status' => 'up_to_date',
-                    'message' => 'Database is up to date'
-                ];
+                return ['status' => 'up_to_date', 'message' => 'No new data'];
             }
-            
-            $this->logMessage("Starting KBA import process...");
-            
-            // Daten herunterladen
-            $csvFile = $this->downloadKBAData();
-            
-            // Daten parsen
-            $vehicles = $this->parseCSV($csvFile);
-            
-            if (!$dryRun) {
-                // Daten importieren
+
+            $csv      = $this->downloadKBAData();
+            $vehicles = $this->parseCSV($csv);
+
+            if (!$dry) {
                 $this->importVehicles($vehicles);
             }
-            
-            // Aufräumen
-            if (file_exists($csvFile)) {
-                unlink($csvFile);
-            }
-            
-            // Statistik ausgeben
-            $this->logMessage("Import completed: " . print_r($this->stats, true));
-            
+
+            @unlink($csv);
+
+            $this->logMessage('Import finished: ' . json_encode($this->stats));
             return [
-                'status' => 'success',
-                'stats' => $this->stats,
-                'updated_at' => date('Y-m-d H:i:s')
+                'status'    => 'success',
+                'stats'     => $this->stats,
+                'updated_at'=> date('c'),
             ];
-            
-        } catch (Exception $e) {
-            $this->logError("Import failed: " . $e->getMessage());
-            return [
-                'status' => 'error',
-                'message' => $e->getMessage()
-            ];
+        } catch (Throwable $e) {
+            $this->logError('Import failed: ' . $e->getMessage());
+            return ['status'=>'error','message'=>$e->getMessage()];
         }
     }
-    
-    /**
-     * Logging-Methoden
-     */
-    private function logMessage($message) {
-        $timestamp = date('Y-m-d H:i:s');
-        $logEntry = "[$timestamp] $message\n";
-        
-        // CLI Output
-        if (php_sapi_name() === 'cli') {
-            echo $logEntry;
-        }
-        
-        // File logging
-        file_put_contents(
-            __DIR__ . '/logs/kba_import.log',
-            $logEntry,
-            FILE_APPEND | LOCK_EX
-        );
-    }
-    
-    private function logError($message) {
-        $this->logMessage("ERROR: $message");
+
+    private function logMessage(string $msg): void {
+        $line = '[' . date('Y-m-d H:i:s') . '] ' . $msg . PHP_EOL;
+        if (php_sapi_name() === 'cli') echo $line;
+        @file_put_contents(__DIR__ . '/logs/kba_import.log', $line, FILE_APPEND | LOCK_EX);
     }
 }
 
-// CLI-Konfiguration
+/* ---------- CLI ---------- */
 if (php_sapi_name() === 'cli') {
-    $options = getopt('', ['force-update', 'dry-run', 'help']);
-    
-    if (isset($options['help'])) {
-        echo "Carfify KBA Import Tool\n";
-        echo "Usage: php import_kba.php [--force-update] [--dry-run] [--help]\n";
+    $opt = getopt('', ['force-update', 'dry-run', 'help']);
+    if (isset($opt['help'])) {
+        echo "Carfify KBA Import CLI\n";
+        echo "Usage: php import_kba.php [--force-update] [--dry-run]\n";
         exit;
     }
-    
-    $runner = new KBAImporter();
-    $result = $runner->run(
-        isset($options['force-update']),
-        isset($options['dry-run'])
+    $exit = (new KBAImporter())->run(
+        isset($opt['force-update']),
+        isset($opt['dry-run'])
     );
-    
-    if ($result['status'] === 'error') {
-        exit(1);
-    }
-    
-    exit(0);
+    exit(($exit['status'] === 'error') ? 1 : 0);
 }
 
-// Web-Aufruf
-if (php_sapi_name() !== 'cli') {
+/* ---------- Web ---------- */
+if (!defined('STDIN')) {
     header('Content-Type: application/json');
-    
-    $runner = new K
+    echo json_encode((new KBAImporter())->run(
+        !empty($_GET['force']),
+        !empty($_GET['dry'])
+    ));
+}

@@ -3,8 +3,16 @@
 // Carfify Landing-Page mit integrierter Diagnose
 declare(strict_types=1);
 
+// Für Vercel: Root-Pfad relativ zu diesem File ermitteln
+defined('ROOT_PATH') or define('ROOT_PATH', dirname(__DIR__));
+
 // Session starten für Diagnose-Fortschritt
 session_start();
+
+// CORS & Security headers (hilfreich auf Vercel)
+header('Cache-Control: public, max-age=600, stale-if-error=300');
+header('X-Frame-Options: SAMEORIGIN');
+header('X-Content-Type-Options: nosniff');
 ?>
 <!DOCTYPE html>
 <html lang="de" class="h-full">
@@ -13,8 +21,8 @@ session_start();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Carfify - Auto-Diagnose in 90 Sekunden</title>
     
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="manifest.json">
+    <!-- PWA Manifest (korrekter Pfad auf Vercel) -->
+    <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#0ea5e9">
     
     <!-- SEO & Social -->
@@ -23,6 +31,7 @@ session_start();
     <meta property="og:description" content="Probleme selbst lösen oder günstig zur Werkstatt">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://carfify.app">
+    <meta property="og:image" content="/og-image.png">
     
     <!-- Styling -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -55,6 +64,7 @@ session_start();
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.2);
+            -webkit-backdrop-filter: blur(20px); /* Safari */
         }
         
         .loading-skeleton {
@@ -85,6 +95,9 @@ session_start();
             transform-origin: left;
             transform: scaleX(0);
         }
+        
+        /* Vercel optimierte Styles für besseren Mobile Performance */
+        img { max-width: 100%; height: auto; }
     </style>
 </head>
 <body class="bg-carfify-light font-sans h-full">
@@ -218,7 +231,9 @@ session_start();
                                    placeholder="1234" 
                                    maxlength="4"
                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-carfify-primary focus:border-transparent transition-colors"
-                                   oninput="filterVehicleData()">
+                                   oninput="filterVehicleData()"
+                                   pattern="[0-9]*"
+                                   inputmode="numeric">
                         </div>
                         
                         <div class="mb-6">
@@ -230,7 +245,9 @@ session_start();
                                    placeholder="ABC" 
                                    maxlength="3"
                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-carfify-primary focus:border-transparent transition-colors"
-                                   oninput="filterVehicleData()">
+                                   oninput="filterVehicleData()"
+                                   pattern="[A-Za-z0-9]*"
+                                   inputmode="text">
                         </div>
                         
                         <!-- Search Results -->
@@ -244,7 +261,7 @@ session_start();
                         <button id="continueBtn" 
                                 onclick="nextToProblem()" 
                                 disabled
-                                class="w-full bg-gray-300 text-gray-500 py-3 rounded-lg font-semibold transition-colors"
+                                class="w-full bg-gray-300 text-gray-500 py-3 rounded-lg font-semibold transition-colors cursor-not-allowed opacity-50"
                                 style="display: none;">
                             Weiter zum Problem
                         </button>
@@ -259,7 +276,8 @@ session_start();
                             <textarea id="problemDescription" 
                                       rows="4" 
                                       placeholder="z.B. 'Beim Bremsen kommt ein quietschender Laut vom rechten Vorderrad, besonders wenn kalt'..."
-                                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-carfify-primary focus:border-transparent transition-colors resize-none"></textarea>
+                                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-carfify-primary focus:border-transparent transition-colors resize-none"
+                                      maxlength="500"></textarea>
                         </div>
                         
                         <div class="mb-6">
@@ -267,22 +285,22 @@ session_start();
                                 Beschreibende Symptome (optional)
                             </label>
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                <button class="symptom-tag px-3 py-2 text-sm border border-gray-300 rounded-lg hover:border-carfify-primary transition-colors" onclick="selectSymptom(this)">
+                                <button type="button" class="symptom-tag px-3 py-2 text-sm border border-gray-300 rounded-lg hover:border-carfify-primary transition-colors focus:outline-none focus:ring-2 focus:ring-carfify-primary" onclick="selectSymptom(this)">
                                     <i class="fas fa-thermometer-half mr-1"></i>Kaltstart
                                 </button>
-                                <button class="symptom-tag px-3 py-2 text-sm border border-gray-300 rounded-lg hover:border-carfify-primary transition-colors" onclick="selectSymptom(this)">
+                                <button type="button" class="symptom-tag px-3 py-2 text-sm border border-gray-300 rounded-lg hover:border-carfify-primary transition-colors focus:outline-none focus:ring-2 focus:ring-carfify-primary" onclick="selectSymptom(this)">
                                     <i class="fas fa-volume-up mr-1"></i>Geräusche
                                 </button>
-                                <button class="symptom-tag px-3 py-2 text-sm border border-gray-300 rounded-lg hover:border-carfify-primary transition-colors" onclick="selectSymptom(this)">
+                                <button type="button" class="symptom-tag px-3 py-2 text-sm border border-gray-300 rounded-lg hover:border-carfify-primary transition-colors focus:outline-none focus:ring-2 focus:ring-carfify-primary" onclick="selectSymptom(this)">
                                     <i class="fas fa-gas-pump mr-1"></i>Verbrauch
                                 </button>
-                                <button class="symptom-tag px-3 py-2 text-sm border border-gray-300 rounded-lg hover:border-carfify-primary transition-colors" onclick="selectSymptom(this)">
+                                <button type="button" class="symptom-tag px-3 py-2 text-sm border border-gray-300 rounded-lg hover:border-carfify-primary transition-colors focus:outline-none focus:ring-2 focus:ring-carfify-primary" onclick="selectSymptom(this)">
                                     <i class="fas fa-lightbulb mr-1"></i>Warnlichter
                                 </button>
                             </div>
                         </div>
                         
-                        <button onclick="startDiagnosisAI()" 
+                        <button type="button" onclick="startDiagnosisAI()" 
                                 class="w-full bg-carfify-primary hover:bg-carfify-secondary text-white py-3 rounded-lg font-semibold transition-colors">
                             <i class="fas fa-brain mr-2"></i>Jetzt analysieren
                         </button>
@@ -307,7 +325,7 @@ session_start();
                             <!-- Dynamisch eingefügt -->
                         </div>
                         
-                        <button onclick="newDiagnosis()" 
+                        <button type="button" onclick="newDiagnosis()" 
                                 class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold transition-colors">
                             <i class="fas fa-refresh mr-2"></i>Neue Diagnose
                         </button>
@@ -400,27 +418,27 @@ session_start();
                 <div>
                     <h4 class="font-semibold mb-4">Funktionen</h4>
                     <ul class="space-y-2 text-sm text-gray-400">
-                        <li><a href="#" class="hover:text-white transition-colors">Fahrzeug-Diagnose</a></li>
-                        <li><a href="#" class="hover:text-white transition-colors">Werkstatt-Finder</a></li>
-                        <li><a href="#" class="hover:text-white transition-colors">Preisvergleiche</a></li>
+                        <li><a href="#diagnosis" class="hover:text-white transition-colors">Diagnose starten</a></li>
+                        <li><a href="#features" class="hover:text-white transition-colors">Funktionen</a></li>
+                        <li><a href="#help" class="hover:text-white transition-colors">Hilfe</a></li>
                     </ul>
                 </div>
                 
                 <div>
                     <h4 class="font-semibold mb-4">Support</h4>
                     <ul class="space-y-2 text-sm text-gray-400">
-                        <li><a href="#" class="hover:text-white transition-colors">Hilfe-Center</a></li>
-                        <li><a href="#" class="hover:text-white transition-colors">Kontakt</a></li>
-                        <li><a href="#" class="hover:text-white transition-colors">API Docs</a></li>
+                        <li><a href="#help" class="hover:text-white transition-colors">Hilfe-Center</a></li>
+                        <li><a href="mailto:hello@carfify.app" class="hover:text-white transition-colors">Kontakt</a></li>
+                        <li><a href="/api" class="hover:text-white transition-colors">API</a></li>
                     </ul>
                 </div>
                 
                 <div>
                     <h4 class="font-semibold mb-4">Rechtliches</h4>
                     <ul class="space-y-2 text-sm text-gray-400">
-                        <li><a href="#" class="hover:text-white transition-colors">Datenschutz</a></li>
-                        <li><a href="#" class="hover:text-white transition-colors">Impressum</a></li>
-                        <li><a href="#" class="hover:text-white transition-colors">Nutzungsbedingungen</a></li>
+                        <li><a href="/privacy" class="hover:text-white transition-colors">Datenschutz</a></li>
+                        <li><a href="/impressum" class="hover:text-white transition-colors">Impressum</a></li>
+                        <li><a href="/terms" class="hover:text-white transition-colors">AGB</a></li>
                     </ul>
                 </div>
             </div>
@@ -431,40 +449,57 @@ session_start();
         </div>
     </footer>
 
-    <!-- Scripts -->
-    <script src="frontend/assets/js/app.js" type="module"></script>
-    <script src="frontend/assets/js/diagnosis.js" type="module"></script>
-    <script src="frontend/assets/js/animations.js" type="module"></script>
+    <!-- Scripts (korrekte Pfade für Vercel) -->
+    <script src="/frontend/assets/js/app.js" type="module"></script>
+    <script src="/frontend/assets/js/diagnosis.js" type="module"></script>
+    <script src="/frontend/assets/js/animations.js" type="module"></script>
     
     <script>
         // Globale Funktionen
         function updateProgress(percent) {
-            document.getElementById('progressBar').style.transform = `scaleX(${percent / 100})`;
+            document.getElementById('progressBar').style.transform = `scaleX(${Math.min(Math.max(percent, 0), 100) / 100})`;
         }
         
         function startDiagnosis() {
-            document.getElementById('diagnosis').scrollIntoView({ behavior: 'smooth' });
-            updateProgress(10);
+            document.getElementById('diagnosis')?.scrollIntoView({ behavior: 'smooth' });
+            updateProgress(15);
         }
         
         // Progress tracking
         window.addEventListener('scroll', () => {
             const scrollTop = window.scrollY;
-            const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+            const docHeight = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
             const scrollPercent = Math.round((scrollTop / docHeight) * 100);
             updateProgress(scrollPercent);
-        });
+        }, { passive: true });
         
-        // Smooth scroll for nav links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({ behavior: 'smooth' });
-                }
+        // Smooth scroll für alle internen Links
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const target = document.querySelector(decodeURIComponent(this.getAttribute('href')));
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                });
             });
         });
+        
+        // Vercel Optimierung: Preload critical resources
+        const criticalLinks = [
+            '/frontend/assets/js/app.js',
+            '/frontend/assets/js/diagnosis.js'
+        ];
+        
+        if (document.head && 'preload' in HTMLLinkElement.prototype) {
+            criticalLinks.forEach(href => {
+                const link = document.createElement('link');
+                link.rel = 'modulepreload';
+                link.href = href;
+                document.head.appendChild(link);
+            });
+        }
     </script>
 </body>
 </html>

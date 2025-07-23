@@ -5,7 +5,7 @@
  * Diese Klasse handhabt alle Fahrzeug-bezogenen Operationen:
  * - Suche nach Fahrzeugen via HSN/TSN
  * - Validierung von Fahrzeug-Kennungen
- * - Caching von Fahrzeugdaten
+ * - Caching von Fahrzeugdaten (Vercel-kompatibel)
  * - Verwaltung der KBA (Kraftfahrtbundesamt) Datenbank
  * 
  * @package Carfify
@@ -20,8 +20,8 @@ class Vehicle {
     /** @var int Cache-Dauer in Sekunden */
     private const CACHE_DURATION = 3600;
     
-    /** @var string Cache-Verzeichnis */
-    private const CACHE_DIR = __DIR__ . '/../../cache/';
+    /** @var bool Vercel deployment flag */
+    private bool $isVercel;
     
     /**
      * Konstruktor
@@ -29,16 +29,7 @@ class Vehicle {
      */
     public function __construct(PDO $db) {
         $this->db = $db;
-        $this->ensureCacheDirectory();
-    }
-
-    /**
-     * Sicherstellt, dass Cache-Verzeichnis existiert
-     */
-    private function ensureCacheDirectory(): void {
-        if (!is_dir(self::CACHE_DIR)) {
-            mkdir(self::CACHE_DIR, 0755, true);
-        }
+        $this->isVercel = isset($_ENV['VERCEL']) || isset($_SERVER['VERCEL']);
     }
 
     /**
@@ -77,11 +68,10 @@ class Vehicle {
             $hsn = $validated['hsn'];
             $tsn = $validated['tsn'];
 
-            // Cache-Key generieren
             $cacheKey = 'vehicle_' . md5($hsn . $tsn);
             
-            // Cache prüfen
-            if ($cached = $this->getCache($cacheKey)) {
+            // Cache nur verwenden wenn nicht auf Vercel
+            if (!$this->isVercel && ($cached = $this->getCache($cacheKey))) {
                 return $cached;
             }
 
@@ -114,10 +104,11 @@ class Vehicle {
 
             $vehicle = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            // Daten transformieren
             if ($vehicle) {
                 $vehicle = $this->transformVehicleData($vehicle);
-                $this->setCache($cacheKey, $vehicle);
+                if (!$this->isVercel) {
+                    $this->setCache($cacheKey, $vehicle);
+                }
                 return $vehicle;
             }
 
@@ -172,7 +163,7 @@ class Vehicle {
 
         $cacheKey = 'search_' . md5($search) . '_' . $limit;
         
-        if ($cached = $this->getCache($cacheKey)) {
+        if (!$this->isVercel && ($cached = $this->getCache($cacheKey))) {
             return $cached;
         }
 
@@ -186,9 +177,9 @@ class Vehicle {
                     year_from,
                     year_to
                 FROM vehicles 
-                WHERE (make ILIKE :search 
-                    OR model ILIKE :search 
-                    OR variant ILIKE :search)
+                WHERE (make LIKE :search 
+                    OR model LIKE :search 
+                    OR variant LIKE :search)
                 AND year_from >= 1990
                 ORDER BY make, model, year_from DESC
                 LIMIT :limit
@@ -207,7 +198,9 @@ class Vehicle {
                 ];
             }
 
-            $this->setCache($cacheKey, $results);
+            if (!$this->isVercel) {
+                $this->setCache($cacheKey, $results);
+            }
             return $results;
 
         } catch (PDOException $e) {
@@ -230,12 +223,10 @@ class Vehicle {
         
         $display = implode(' ', array_filter($parts));
         
-        // Kraftstoff hinzufügen
         if (!empty($vehicle['fuel_type'])) {
             $display .= ' (' . $vehicle['fuel_type'] . ')';
         }
         
-        // Baujahre hinzufügen
         if ($vehicle['year_from'] || $vehicle['year_to']) {
             $years = $vehicle['year_from'];
             if ($vehicle['year_to'] && $vehicle['year_to'] !== $vehicle['year_from']) {
@@ -247,13 +238,20 @@ class Vehicle {
         return $display;
     }
 
+    // Alle nachfolgenden Cache-Methoden sind jetzt nur noch für lokale Entwicklung relevant
+    // Beim Vercel-Deployment werden sie automatisch deaktiviert
+    
     /**
-     * Holt aus dem Cache
+     * Holt aus dem Cache (nur lokal)
      * @param string $key Cache-Key
      * @return mixed|null Gecachte Daten
      */
     private function getCache(string $key) {
-        $file = self::CACHE_DIR . $key . '.cache';
+        if ($this->isVercel) {
+            return null;
+        }
+        
+        $file = __DIR__ . '/../../cache/' . $key . '.cache';
         
         if (!file_exists($file)) {
             return null;
@@ -270,29 +268,42 @@ class Vehicle {
     }
 
     /**
-     * Speichert im Cache
+     * Speichert im Cache (nur lokal)
      * @param string $key Cache-Key
      * @param mixed $data Zu speichernde Daten
      */
     private function setCache(string $key, $data): void {
+        if ($this->isVercel) {
+            return;
+        }
+
+        $cacheDir = __DIR__ . '/../../cache/';
+        if (!is_dir($cacheDir)) {
+            mkdir($cacheDir, 0755, true);
+        }
+        
         $cacheData = [
             'data' => $data,
             'expires' => time() + self::CACHE_DURATION
         ];
         
         file_put_contents(
-            self::CACHE_DIR . $key . '.cache',
+            $cacheDir . $key . '.cache',
             serialize($cacheData),
             LOCK_EX
         );
     }
 
     /**
-     * Leert veraltete Cache-Einträge
+     * Leert veraltete Cache-Einträge (nur lokal)
      * @return int Anzahl gelöschter Dateien
      */
     public function clearExpiredCache(): int {
-        $files = glob(self::CACHE_DIR . '*.cache');
+        if ($this->isVercel) {
+            return 0;
+        }
+
+        $files = glob(__DIR__ . '/../../cache/' . '*.cache');
         $deleted = 0;
         
         foreach ($files as $file) {
