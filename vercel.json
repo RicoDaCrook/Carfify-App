@@ -1,13 +1,19 @@
 {
   "version": 2,
-  "functions": {
-    "api/**/*.php": {
-      "runtime": "vercel-php@0.6.1"
+  "builds": [
+    {
+      "src": "frontend/index.php",
+      "use": "vercel-php@0.6.1"
     },
-    "frontend/**/*.php": {
-      "runtime": "vercel-php@0.6.1"
+    {
+      "src": "frontend/**/*.php",
+      "use": "vercel-php@0.6.1"
+    },
+    {
+      "src": "backend/api/**/*.php",
+      "use": "vercel-php@0.6.1"
     }
-  },
+  ],
   "routes": [
     {
       "src": "/api/(.*)",
@@ -18,33 +24,21 @@
       "dest": "/frontend/assets/$1"
     },
     {
-      "src": "/(?!api|assets)(.*)",
-      "dest": "/frontend/$1"
+      "src": "/(.*\\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot))",
+      "dest": "/frontend/$1",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
     },
     {
-      "src": "/",
+      "src": "/(.*)",
       "dest": "/frontend/index.php"
     }
   ],
-  "builds": [
-    {
-      "src": "frontend/index.php",
-      "use": "vercel-php@0.6.1"
-    },
-    {
-      "src": "backend/api/**/*.php",
-      "use": "vercel-php@0.6.1"
-    }
-  ],
-  "env": {
-    "PHP_VERSION": "8.1"
-  },
   "functions": {
-    "backend/api/**/*.php": {
-      "runtime": "vercel-php@0.6.1"
-    },
-    "frontend/index.php": {
-      "runtime": "vercel-php@0.6.1"
-    }
-  }
+    "frontend/index.php": { "runtime": "vercel-php@0.6.1" },
+    "frontend/**/*.php": { "runtime": "vercel-php@0.6.1" },
+    "backend/api/**/*.php": { "runtime": "vercel-php@0.6.1" }
+  },
+  "env": { "PHP_VERSION": "8.1" }
 }

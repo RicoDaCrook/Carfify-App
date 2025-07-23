@@ -2,7 +2,7 @@
  * Carfify Animation Engine
  * Provides smooth, performant animations and micro-interactions
  * Uses Web Animations API for best mobile performance
- * Version: 1.0.0
+ * Version: 1.0.1
  */
 
 class CarfifyAnimations {
@@ -51,6 +51,12 @@ class CarfifyAnimations {
             .glass-backdrop {
                 backdrop-filter: blur(20px) saturate(180%);
                 background: rgba(255, 255, 255, 0.75);
+            }
+
+            /* Added missing fade-out animation */
+            .fade-out {
+                opacity: 0;
+                transition: opacity 0.15s ease-out;
             }
         `;
         document.head.appendChild(style);
@@ -146,8 +152,8 @@ class CarfifyAnimations {
                 if (glass) {
                     glass.animate(
                         [
-                            { background: 'rgba(255,255,255,0.1)' },
-                            { background: 'rgba(255,255,255,0.2)' }
+                            { backgroundColor: 'rgba(255,255,255,0.1)' },
+                            { backgroundColor: 'rgba(255,255,255,0.2)' }
                         ],
                         { duration: 300, fill: 'forwards' }
                     );
@@ -159,6 +165,17 @@ class CarfifyAnimations {
                     [{ transform: 'translateY(-2px)' }, { transform: 'translateY(0px)' }],
                     { duration: 200, fill: 'forwards' }
                 );
+                
+                const glass = card.querySelector('.glass-card');
+                if (glass) {
+                    glass.animate(
+                        [
+                            { backgroundColor: 'rgba(255,255,255,0.2)' },
+                            { backgroundColor: 'rgba(255,255,255,0.1)' }
+                        ],
+                        { duration: 300, fill: 'forwards' }
+                    );
+                }
             });
         });
     }
@@ -264,7 +281,6 @@ class CarfifyAnimations {
             check.style.cssText = 'animation: checkmark 0.5s ease-in-out forwards';
             element.appendChild(check);
             
-            // Auto-remove after animation
             setTimeout(() => check.remove(), 1000);
         };
     }
@@ -280,7 +296,7 @@ class CarfifyAnimations {
             if (glass) {
                 glass.style.transform = `translateY(${scrolled * 0.5}px)`;
             }
-        });
+        }, { passive: true });
     }
 
     /**
@@ -329,7 +345,7 @@ class CarfifyAnimations {
     }
 }
 
-// CSS keyframes for custom animations
+// CSS keyframes for custom animations - BEREINIGT und VERBESSERT
 const animationStyles = `
     @keyframes ripple {
         to {
@@ -339,4 +355,48 @@ const animationStyles = `
     }
 
     @keyframes checkmark {
-        
+        0% {
+            transform: scale(0) rotate(45deg);
+            opacity: 0;
+        }
+        50% {
+            transform: scale(1.2) rotate(0deg);
+            opacity: 1;
+        }
+        100% {
+            transform: scale(1) rotate(0deg);
+            opacity: 1;
+        }
+    }
+
+    @keyframes fall {
+        0% {
+            transform: translateY(-100px) rotate(0deg);
+            opacity: 1;
+        }
+        100% {
+            transform: translateY(100vh) rotate(360deg);
+            opacity: 0;
+        }
+    }
+`;
+
+// Inject animation styles only once
+if (!document.querySelector('#carfify-animations-styles')) {
+    const styleSheet = document.createElement('style');
+    styleSheet.id = 'carfify-animations-styles';
+    styleSheet.textContent = animationStyles;
+    document.head.appendChild(styleSheet);
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => new CarfifyAnimations());
+} else {
+    new CarfifyAnimations();
+}
+
+// Export for module systems
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = CarfifyAnimations;
+}

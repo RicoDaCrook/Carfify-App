@@ -185,3 +185,4 @@ class Database
         throw new \Exception('Cannot unserialize Database Singleton.');
     }
 }
+

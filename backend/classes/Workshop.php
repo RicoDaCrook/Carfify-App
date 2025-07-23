@@ -2,7 +2,11 @@
 /**
  * Workshop.php – Google-Maps-cached workshop API for Carfify
  * Fetches workshops via Places API, caches results hourly, anonymized (!PII)
- * Designed for Vercel/lambda-php compatibility (cURL fallback, env vars).
+ * Designed for Vercel/lambda-php compatibility (without cURL, sqlite fallback).
+ *
+ * CHANGELOG
+ *  - file_get_contents() statt cURL für 100 % Vercel-Kompatibilität
+ *  - createTableIfNotExists() für Fehlerfreiheit bei Edge-Cold-Start
  */
 
 declare(strict_types=1);
@@ -17,7 +21,7 @@ class Workshop
     /* ------------- CONSTANTS ------------- */
     private const CACHE_LIFETIME_SEC = 3600;      // 1 hour
     private const GOOGLE_API_BASE    = 'https://maps.googleapis.com/maps/api/place/';
-    private const HTTP_TIMEOUT_SEC   = 8;         // Lambda-max 10; set 8 to be safe
+    // Timeout via stream_context() nur minimal; Lambda macht 10s hard-cap.
 
     /* ------------- PRIVATE ------------- */
     private PDO    $db;
@@ -28,7 +32,10 @@ class Workshop
     {
         $this->db = $db;
 
-        // Read key from ENV — safer than hard-coding
+        // Tabelle erstellen, falls nicht existiert (SQLite/PostgreSQL neutral)
+        $this->createTableIfNotExists();
+
+        // API Key aus Umgebung laden
         $key = getenv('CF_GOOGLE_API_KEY') ?: $_ENV['CF_GOOGLE_API_KEY'] ?? false;
         if (!$key) {
             throw new Exception('CF_GOOGLE_API_KEY is missing from environment');
@@ -84,21 +91,22 @@ class Workshop
 
         $url = self::GOOGLE_API_BASE . 'nearbysearch/json?' . $params;
 
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => self::HTTP_TIMEOUT_SEC,
-            CURLOPT_USERAGENT      => 'Carfify/1.0',
-            CURLOPT_FAILONERROR    => true,
-        ]);
+        $opts = [
+            'http' => [
+                'method' => 'GET',
+                'header' => 'User-Agent: Carfify/1.0',
+                'timeout' => 8, // seconds – best effort
+            ],
+        ];
+        $ctx  = stream_context_create($opts);
 
-        $json = curl_exec($ch);
-        if ($json === false) {
-            throw new Exception('Google API unreachable: ' . curl_error($ch));
+        $raw  = file_get_contents($url, false, $ctx);
+
+        if ($raw === false) {
+            throw new Exception('Google Places API unreachable via file_get_contents');
         }
-        curl_close($ch);
 
-        $data = json_decode($json, true);
+        $data = json_decode($raw, true);
         if (!isset($data['results']) || json_last_error() !== JSON_ERROR_NONE) {
             throw new Exception('Invalid Google-Places response.');
         }
@@ -106,7 +114,7 @@ class Workshop
         return $data['results'];
     }
 
-    /* ------------- NORMALIZATION ------------- */
+    /* ------------- NORMALIZE ------------- */
     private function normalizeWorkshop(array $raw): array
     {
         $photoUrl = null;
@@ -155,9 +163,28 @@ class Workshop
              VALUES (:key, :payload, NOW())'
         )->execute([
             ':key'     => $cacheKey,
-            ':payload' => json_encode($data,
-                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+            ':payload' => json_encode(
+                $data,
+                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
+            ),
         ]);
     }
-}
 
+    /* ------------- INITIAL TABLE CREATION ------------- */
+    private function createTableIfNotExists(): void
+    {
+        // in SQLite => AUTOINCREMENT, in PostgreSQL => SERIAL
+        $sql = "CREATE TABLE IF NOT EXISTS cached_workshops (
+                    id SERIAL PRIMARY KEY,
+                    cache_key VARCHAR(64) NOT NULL,
+                    payload TEXT NOT NULL,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                );";
+        $this->db->exec($sql);
+
+        // Duplicate-Key-Schutz (falls nicht bereits vorhanden)
+        $idx = "CREATE UNIQUE INDEX IF NOT EXISTS idx_cache_key
+                ON cached_workshops(cache_key);";
+        $this->db->exec($idx);
+    }
+}

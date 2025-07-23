@@ -14,14 +14,26 @@ declare(strict_types=1);
 
 // ------------------- CONFIG & BOOTSTRAP SECTION -------------------
 
-// Fehlerbehandlung für Produktion
-error_reporting(getenv('DEBUG') ? E_ALL : 0);
+// Fehlerbehandlung für Vercel-Production - mehr Debug in Umgebungsvariablen
+error_reporting(getenv('VERCEL_ENV') ? 0 : E_ALL);
 ini_set('display_errors', 0);
 
 // Setze Security-Header vor jeglicher Output
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('X-XSS-Protection: 1; mode=block');
+
+// Stelle sicher, dass CORS korrekt konfiguriert ist
+$corsOrigin = $_ENV['FRONTEND_URL'] ?? ($_SERVER['HTTP_ORIGIN'] ?? '*');
+header("Access-Control-Allow-Origin: {$corsOrigin}");
+header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
+// Handle preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
 
 require_once __DIR__ . '/../security/cors.php';
 
@@ -31,9 +43,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit(json_encode(['error' => 'Method not allowed']));
 }
 
-// Maximale Laufzeit & Memory (Vercel-spezifische Limits beachten)
-set_time_limit(30);
-ini_set('memory_limit', '256M');
+// Vercel-spezifische Limits (konservative Werte)
+// set_time_limit() ist in Vercel Functions begrenzt - entfernt
+// ini_set('memory_limit', '256M'); // Vercel Standard sollte reichen
 
 // JSON-Content-Type
 header('Content-Type: application/json; charset=utf-8');
