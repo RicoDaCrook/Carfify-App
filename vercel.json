@@ -5,20 +5,9 @@
     "backend/api/*.php": { "runtime": "vercel-php@0.6.1" }
   },
   "routes": [
-    {
-      "src": "/assets/(.*)",
-      "dest": "/frontend/assets/$1"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/backend/api/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/frontend/index.php"
-    }
+    { "src": "/assets/(.*)", "dest": "/frontend/assets/$1" },
+    { "src": "/api/(.*)", "dest": "/backend/api/$1" },
+    { "src": "/(.*)", "dest": "/frontend/index.php" }
   ],
-  "env": {
-    "PHP_VERSION": "8.1"
-  }
+  "env": { "PHP_VERSION": "8.1" }
 }

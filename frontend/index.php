@@ -166,9 +166,9 @@ header('X-Content-Type-Options: nosniff');
 </footer>
 
 <!-- ============================ JS =================================== -->
-<script src="/frontend/assets/js/app.js"     type="module"></script>
-<script src="/frontend/assets/js/diagnosis.js" type="module"></script>
-<script src="/frontend/assets/js/animations.js" type="module"></script>
+<script src="/assets/js/app.js"     type="module"></script>
+<script src="/assets/js/diagnosis.js" type="module"></script>
+<script src="/assets/js/animations.js" type="module"></script>
 
 <!-- Inline Utilities (damit wir auch ohne Module arbeiten können) -->
 <script>

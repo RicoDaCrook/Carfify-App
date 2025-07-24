@@ -141,7 +141,7 @@ function validateInput($value, array $rule): true|string
 $vehicleContext = '';
 if (!empty($validated['vehicle']['id'])) {
     try {
-        $dbFile = __DIR__ . '/../classes/Database.php';
+        $dbFile = __DIR__ . '/../config/database.php';
         if (file_exists($dbFile)) {
             require_once $dbFile;
             $pdo = (new \Carfify\Classes\Database())->getPDO();
@@ -224,7 +224,7 @@ if ($validated['step'] === 1) {
             throw new Exception('No session ID for step > 1');
         }
         
-        $dbFile = __DIR__ . '/../classes/Database.php';
+        $dbFile = __DIR__ . '/../config/database.php';
         if (file_exists($dbFile)) {
             require_once $dbFile;
             $pdo = (new \Carfify\Classes\Database())->getPDO();

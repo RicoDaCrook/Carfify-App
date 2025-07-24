@@ -1,4 +1,5 @@
 <?php
+if (isset($_ENV['VERCEL'])) { http_response_code(200); echo json_encode(['status' => 'Import script disabled on Vercel']); exit; }
 /**
  * import_kba.php – KBA Import fuer Carfify (Vercel-FaaS ready)
  *

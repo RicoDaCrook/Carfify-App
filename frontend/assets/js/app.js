@@ -4,9 +4,7 @@
  */
 
 // API Configuration - anpassen für Vercel
-const API_BASE = window.location.origin.includes('vercel.app') 
-    ? 'https://' + window.location.hostname + '/backend/api'
-    : 'http://localhost:8000/backend/api';
+const API_BASE = '/api';
 
 // DOM Elemente
 const form = document.getElementById('diagnose-form');
@@ -199,7 +197,7 @@ const SYMPTOM_DETAILS = {
 // Progressive Enhancement
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/frontend/assets/js/sw.js')
+        navigator.serviceWorker.register('/assets/js/sw.js')
             .then(registration => console.log('SW registered'))
             .catch(registrationError => console.log('SW registration failed'));
     });
