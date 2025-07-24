@@ -4,33 +4,16 @@
     {
       "src": "backend/api/**/*.php",
       "use": "vercel-php@0.6.1"
-    },
-    {
-      "src": "frontend/index.php",
-      "use": "vercel-php@0.6.1"
-    },
-    {
-      "src": "frontend/assets/**",
-      "use": "@vercel/static"
     }
   ],
   "routes": [
-    {
-      "src": "/api/test",
-      "dest": "/backend/api/test.php"
-    },
     {
       "src": "/api/(.*)",
       "dest": "/backend/api/$1"
     },
     {
-      "src": "/assets/(.*)",
-      "dest": "/frontend/assets/$1"
-    },
-    {
       "src": "/(.*)",
-      "dest": "/frontend/index.php"
+      "dest": "/public/frontend/$1"
     }
   ]
 }
-
