@@ -1,14 +1,20 @@
 {
   "version": 2,
-  "functions": {
-    "backend/api/*.php": { "runtime": "vercel-php@0.6.1" },
-    "frontend/index.php": { "runtime": "vercel-php@0.6.1" }
-  },
-  "routes": [
+  "builds": [
     {
-      "src": "/api/test",
-      "dest": "/backend/api/test.php"
+      "src": "/backend/api/**/*.php",
+      "use": "vercel-php@0.6.1"
     },
+    {
+      "src": "/frontend/index.php",
+      "use": "vercel-php@0.6.1"
+    },
+    {
+      "src": "/frontend/assets/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
     {
       "src": "/api/(.*)",
       "dest": "/backend/api/$1"
