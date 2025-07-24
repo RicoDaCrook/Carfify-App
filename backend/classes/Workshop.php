@@ -36,9 +36,9 @@ class Workshop
         $this->createTableIfNotExists();
 
         // API Key aus Umgebung laden
-        $key = getenv('CF_GOOGLE_API_KEY') ?: $_ENV['CF_GOOGLE_API_KEY'] ?? false;
+        $key = $_ENV['GOOGLE_MAPS_API_KEY'] ?? false;
         if (!$key) {
-            throw new Exception('CF_GOOGLE_API_KEY is missing from environment');
+            throw new Exception('GOOGLE_MAPS_API_KEY is missing from environment');
         }
         $this->googleApiKey = $key;
     }

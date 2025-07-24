@@ -6,8 +6,8 @@
  * Optimized for Vercel deployment with Neon PostgreSQL.
  *
  * Usage:
- *   require_once __DIR__ . '/config/database.php';
- *   CarfifyDatabase::select($sql, [$bindings]);
+ *   require_once __DIR__ . '/../backend/config/database.php';
+ *   Carfify\Database::select($sql, [$bindings]);
  *
  * Environment variables (set in Vercel dashboard):
  *   DATABASE_URL (Neon connection string, preferred)
@@ -37,52 +37,48 @@ final class Database
     {
         if (self::$pdo === null) {
             try {
-                $databaseUrl = getenv('DATABASE_URL');
+                $databaseUrl = $_ENV['DATABASE_URL'] ?? '';
                 
-                if ($databaseUrl) {
+                if ($databaseUrl !== '') {
                     // Neon PostgreSQL on Vercel (DATABASE_URL format)
                     $dbOpts = parse_url($databaseUrl);
-                    if ($dbOpts) {
+                    if ($dbOpts !== false) {
                         $dsn = sprintf(
                             'pgsql:host=%s;port=%d;dbname=%s;user=%s;password=%s',
                             $dbOpts['host'] ?? 'localhost',
-                            $dbOpts['port'] ?? 5432,
+                            (int) ($dbOpts['port'] ?? 5432),
                             ltrim($dbOpts['path'] ?? '', '/'),
-                            $dbOpts['user'] ?? '',
-                            $dbOpts['pass'] ?? ''
+                            rawurldecode($dbOpts['user'] ?? ''),
+                            rawurldecode($dbOpts['pass'] ?? '')
                         );
-                    } else {
-                        throw new PDOException('Invalid DATABASE_URL format');
+                        self::$pdo = new PDO($dsn, '', '', [
+                            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                            PDO::ATTR_TIMEOUT           => 5,
+                            PDO::ATTR_PERSISTENT        => false,
+                        ]);
+                        return self::$pdo;
                     }
-                } else {
-                    // Fallback to individual ENV variables
-                    $dsn = sprintf(
-                        'pgsql:host=%s;port=%s;dbname=%s',
-                        getenv('DB_HOST') ?: 'localhost',
-                        getenv('DB_PORT') ?: 5432,
-                        getenv('DB_NAME') ?: 'carfify'
-                    );
+                    throw new PDOException('Invalid DATABASE_URL format');
                 }
 
-                $user = getenv('DATABASE_URL') ? '' : (getenv('DB_USER') ?: 'developer');
-                $pass = getenv('DATABASE_URL') ? '' : (getenv('DB_PASS') ?: '');
-
-                self::$pdo = new PDO(
-                    $dsn,
-                    $user,
-                    $pass,
-                    [
-                        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                        PDO::ATTR_TIMEOUT           => 5, // 5 second timeout for serverless
-                        PDO::ATTR_PERSISTENT        => false, // Important for serverless
-                    ]
+                // Fallback to individual ENV variables
+                $dsn = sprintf(
+                    'pgsql:host=%s;port=%s;dbname=%s;user=%s;password=%s',
+                    $_ENV['DB_HOST'] ?? 'localhost',
+                    $_ENV['DB_PORT'] ?? 5432,
+                    $_ENV['DB_NAME'] ?? 'carfify',
+                    $_ENV['DB_USER'] ?? 'developer',
+                    $_ENV['DB_PASS'] ?? ''
                 );
+                self::$pdo = new PDO($dsn, '', '', [
+                    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_TIMEOUT           => 5,
+                    PDO::ATTR_PERSISTENT        => false,
+                ]);
             } catch (PDOException $e) {
-                // Log error securely
                 error_log('DB connection error: ' . $e->getMessage());
-                
-                // Return proper JSON error for API endpoints
                 http_response_code(503);
                 echo json_encode([
                     'error' => 'Database currently unavailable',
@@ -91,16 +87,11 @@ final class Database
                 exit;
             }
         }
-
         return self::$pdo;
     }
 
     /**
      * Executes a prepared SELECT and returns all rows.
-     *
-     * @param string $sql    The SQL statement (placeholders with ?)
-     * @param array  $params Bindings for each placeholder
-     * @return array<int,array<string,mixed>>
      */
     public static function select(string $sql, array $params = []): array
     {
@@ -111,21 +102,13 @@ final class Database
         } catch (PDOException $e) {
             error_log('DB select error: ' . $e->getMessage());
             http_response_code(500);
-            echo json_encode([
-                'error' => 'Database query failed',
-                'code'  => 'DB_QUERY_ERROR'
-            ]);
+            echo json_encode(['error' => 'Database query failed', 'code' => 'DB_QUERY_ERROR']);
             exit;
         }
     }
 
     /**
      * Executes a prepared INSERT and returns the lastInsertId.
-     *
-     * @param string   $sql    The SQL statement (placeholders with ?)
-     * @param array    $params Bindings for each placeholder
-     * @param string[] $pk     Primary key field(s) (only needed for multi-field sequences)
-     * @return int|string Last insert ID
      */
     public static function insert(string $sql, array $params = [], array $pk = ['id'])
     {
@@ -136,10 +119,7 @@ final class Database
         } catch (PDOException $e) {
             error_log('DB insert error: ' . $e->getMessage());
             http_response_code(500);
-            echo json_encode([
-                'error' => 'Database insert failed',
-                'code'  => 'DB_INSERT_ERROR'
-            ]);
+            echo json_encode(['error' => 'Database insert failed', 'code' => 'DB_INSERT_ERROR']);
             exit;
         }
     }
@@ -156,10 +136,7 @@ final class Database
         } catch (PDOException $e) {
             error_log('DB exec error: ' . $e->getMessage());
             http_response_code(500);
-            echo json_encode([
-                'error' => 'Database operation failed',
-                'code'  => 'DB_EXEC_ERROR'
-            ]);
+            echo json_encode(['error' => 'Database operation failed', 'code' => 'DB_EXEC_ERROR']);
             exit;
         }
     }
@@ -172,7 +149,7 @@ final class Database
         try {
             self::connection()->query('SELECT 1');
             return true;
-        } catch (PDOException $e) {
+        } catch (PDOException) {
             return false;
         }
     }

@@ -26,13 +26,8 @@ class Database
     private PDO $conn;
 
     /* ------------------------------ Config ---------------------------- */
-    // Konfiguration aus Environment lesen, Fallback auf lokale Defaults.
-    private const DB_HOST     = 'localhost';
-    private const DB_PORT     = '5432';
-    private const DB_NAME     = 'carfify';
-    private const DB_USER     = 'carfify_user';
-    private const DB_PASSWORD = 'super_safe_pw';
-    private const CHARSET     = 'utf8';
+    // Nur noch als Fallback – VERSCHLÜSSELTER Key kommt aus Vercel
+    private const CHARSET = 'utf8';
 
     /* ------------------------------ Connection Options ---------------------------- */
     private const PDO_OPTS = [
@@ -46,25 +41,42 @@ class Database
     /* ------------------------------ Private Constructor ---------------------------- */
     private function __construct()
     {
-        // Umgebungsvariablen (Vercel secrets) nutzen, sonst Konstanten.
-        $host = $_ENV['DB_HOST']     ?? $_SERVER['DB_HOST']     ?? self::DB_HOST;
-        $port = $_ENV['DB_PORT']     ?? $_SERVER['DB_PORT']     ?? self::DB_PORT;
-        $name = $_ENV['DB_NAME']     ?? $_SERVER['DB_NAME']     ?? self::DB_NAME;
-        $user = $_ENV['DB_USER']     ?? $_SERVER['DB_USER']     ?? self::DB_USER;
-        $pass = $_ENV['DB_PASSWORD'] ?? $_SERVER['DB_PASSWORD'] ?? self::DB_PASSWORD;
+        // Vercel Environment-Variable DATABASE_URL hat Vorrang
+        $dsnFromEnv = $_ENV['DATABASE_URL'] ?? null;
+        if (!empty($dsnFromEnv)) {
+            // Vercel liefert postgres://user:pass@host:port/db
+            // PDO will: pgsql:host=…;port=…;dbname=…
+            $url = parse_url($dsnFromEnv);
 
-        $dsn = sprintf(
-            'pgsql:host=%s;port=%s;dbname=%s',
-            $host,
-            $port,
-            $name
-        );
+            $dsn = sprintf(
+                'pgsql:host=%s;port=%s;dbname=%s;user=%s;password=%s',
+                $url['host']            ?? 'localhost',
+                $url['port']            ?? '5432',
+                ltrim($url['path'], '/') ?? 'carfify',
+                $url['user']            ?? 'carfify_user',
+                $url['pass']            ?? ''
+            );
+        } else {
+            // Fallback falls DATABASE_URL nicht vorhanden = lokale Entwicklung
+            $host = $_ENV['DB_HOST']     ?? $_SERVER['DB_HOST']     ?? 'localhost';
+            $port = $_ENV['DB_PORT']     ?? $_SERVER['DB_PORT']     ?? '5432';
+            $name = $_ENV['DB_NAME']     ?? $_SERVER['DB_NAME']     ?? 'carfify';
+            $user = $_ENV['DB_USER']     ?? $_SERVER['DB_USER']     ?? 'carfify_user';
+            $pass = $_ENV['DB_PASSWORD'] ?? $_SERVER['DB_PASSWORD'] ?? 'super_safe_pw';
+
+            $dsn = sprintf(
+                'pgsql:host=%s;port=%s;dbname=%s',
+                $host,
+                $port,
+                $name
+            );
+        }
 
         try {
             $this->conn = new PDO(
                 $dsn,
-                $user,
-                $pass,
+                $user ?? null,   // falls alles in DSN
+                $pass ?? null,
                 self::PDO_OPTS
             );
 

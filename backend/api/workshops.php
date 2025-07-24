@@ -4,7 +4,7 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
-include 'config.php';
+require_once __DIR__ . '/../config.php';
 
 // Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 function searchWorkshops($lat, $lng, $radius = 5000, $repairType = 'all') {
-    $apiKey = $_ENV['GOOGLE_MAPS_API_KEY'] ?? 'AIzaSyD0Jr5eJF9dhjTzXLaJYlH3wEDW8DIx8ec';
+    $apiKey = $_ENV['GOOGLE_MAPS_API_KEY'] ?? '';
     
     // Convert radius from meters to kilometers
     $radiusKm = $radius / 1000;

@@ -7,7 +7,8 @@ echo json_encode([
     'env' => [
         'has_anthropic' => !empty($_ENV['ANTHROPIC_API_KEY']),
         'has_google' => !empty($_ENV['GOOGLE_MAPS_API_KEY']),
-        'has_database' => !empty($_ENV['DATABASE_URL'])
+        'has_database' => !empty($_ENV['DATABASE_URL']),
+        'has_gemini' => !empty($_ENV['GEMINI_API_KEY'])
     ],
     'php_version' => PHP_VERSION
 ]);
