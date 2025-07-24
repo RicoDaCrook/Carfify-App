@@ -2,15 +2,15 @@
   "version": 2,
   "builds": [
     {
-      "src": "/backend/api/**/*.php",
+      "src": "backend/api/**/*.php",
       "use": "vercel-php@0.6.1"
     },
     {
-      "src": "/frontend/index.php",
+      "src": "frontend/index.php",
       "use": "vercel-php@0.6.1"
     },
     {
-      "src": "/frontend/assets/**",
+      "src": "frontend/assets/**",
       "use": "@vercel/static"
     }
   ],
