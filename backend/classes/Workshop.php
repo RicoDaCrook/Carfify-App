@@ -66,12 +66,16 @@ class Workshop
             return $cached;
         }
 
-        $googleResults = $this->fetchFromGoogle($lat, $lng, $radiusMeters, $keyword);
-
-        $sanitized = array_map([$this, 'normalizeWorkshop'], $googleResults);
-        $this->storeCache($cacheKey, $sanitized);
-
-        return $sanitized;
+        try {
+            $googleResults = $this->fetchFromGoogle($lat, $lng, $radiusMeters, $keyword);
+            $sanitized = array_map([$this, 'normalizeWorkshop'], $googleResults);
+            $this->storeCache($cacheKey, $sanitized);
+            return $sanitized;
+        } catch (Exception $e) {
+            // Log error and return empty array instead of breaking
+            error_log("Workshop search failed: " . $e->getMessage());
+            return [];
+        }
     }
 
     /* ------------- GOOGLE FETCH ------------- */
@@ -100,15 +104,24 @@ class Workshop
         ];
         $ctx  = stream_context_create($opts);
 
-        $raw  = file_get_contents($url, false, $ctx);
-
+        $raw  = @file_get_contents($url, false, $ctx);
+        
         if ($raw === false) {
             throw new Exception('Google Places API unreachable via file_get_contents');
         }
 
         $data = json_decode($raw, true);
-        if (!isset($data['results']) || json_last_error() !== JSON_ERROR_NONE) {
-            throw new Exception('Invalid Google-Places response.');
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new Exception('Invalid JSON response from Google Places: ' . json_last_error_msg());
+        }
+        
+        if (!isset($data['results'])) {
+            throw new Exception('Invalid Google-Places structure: missing results');
+        }
+
+        // Handle API errors
+        if (isset($data['error_message'])) {
+            throw new Exception('Google Places API error: ' . $data['error_message']);
         }
 
         return $data['results'];
@@ -118,7 +131,7 @@ class Workshop
     private function normalizeWorkshop(array $raw): array
     {
         $photoUrl = null;
-        if (!empty($raw['photos'][0])) {
+        if (!empty($raw['photos'][0]['photo_reference'])) {
             $ref = $raw['photos'][0]['photo_reference'];
             $photoUrl = self::GOOGLE_API_BASE
                 . "photo?maxwidth=320&photoreference={$ref}&key={$this->googleApiKey}";
@@ -140,51 +153,65 @@ class Workshop
     /* ------------- CACHING ------------- */
     private function fetchCache(string $cacheKey): ?array
     {
-        $stmt = $this->db->prepare(
-            'SELECT payload
-             FROM cached_workshops
-             WHERE cache_key = :key
-             AND created_at > NOW() - INTERVAL \'1 hour\''
-        );
-        $stmt->execute([':key' => $cacheKey]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        try {
+            $stmt = $this->db->prepare(
+                'SELECT payload
+                 FROM cached_workshops
+                 WHERE cache_key = :key
+                 AND created_at > datetime("now", "-1 hour")'
+            );
+            $stmt->execute([':key' => $cacheKey]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        return $row ? json_decode($row['payload'], true) : null;
+            return $row ? json_decode($row['payload'], true) : null;
+        } catch (Exception $e) {
+            // Cache unavailable, continue without caching
+            return null;
+        }
     }
 
     private function storeCache(string $cacheKey, array $data): void
     {
-        $this->db->prepare(
-            'DELETE FROM cached_workshops WHERE cache_key = :key'
-        )->execute([':key' => $cacheKey]);
+        try {
+            $this->db->prepare(
+                'DELETE FROM cached_workshops WHERE cache_key = :key'
+            )->execute([':key' => $cacheKey]);
 
-        $this->db->prepare(
-            'INSERT INTO cached_workshops (cache_key, payload, created_at)
-             VALUES (:key, :payload, NOW())'
-        )->execute([
-            ':key'     => $cacheKey,
-            ':payload' => json_encode(
-                $data,
-                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
-            ),
-        ]);
+            $stmt = $this->db->prepare(
+                'INSERT INTO cached_workshops (cache_key, payload, created_at)
+                 VALUES (:key, :payload, datetime("now"))'
+            );
+            
+            $json = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            if ($json === false) {
+                throw new Exception('Failed to encode workshop data: ' . json_last_error_msg());
+            }
+            
+            $stmt->execute([
+                ':key'     => $cacheKey,
+                ':payload' => $json,
+            ]);
+        } catch (Exception $e) {
+            // Cache storage failed, silently continue
+            error_log("Failed to cache workshops: " . $e->getMessage());
+        }
     }
 
     /* ------------- INITIAL TABLE CREATION ------------- */
     private function createTableIfNotExists(): void
     {
-        // in SQLite => AUTOINCREMENT, in PostgreSQL => SERIAL
-        $sql = "CREATE TABLE IF NOT EXISTS cached_workshops (
-                    id SERIAL PRIMARY KEY,
-                    cache_key VARCHAR(64) NOT NULL,
-                    payload TEXT NOT NULL,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-                );";
-        $this->db->exec($sql);
-
-        // Duplicate-Key-Schutz (falls nicht bereits vorhanden)
-        $idx = "CREATE UNIQUE INDEX IF NOT EXISTS idx_cache_key
-                ON cached_workshops(cache_key);";
-        $this->db->exec($idx);
+        $this->db->exec("
+            CREATE TABLE IF NOT EXISTS cached_workshops (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cache_key VARCHAR(64) NOT NULL UNIQUE,
+                payload TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+        ");
+        
+        $this->db->exec("
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_cache_key 
+            ON cached_workshops(cache_key);
+        ");
     }
 }

@@ -35,7 +35,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-require_once __DIR__ . '/../security/cors.php';
+// Sicherstellen, dass das CORS-Script existiert und lädt
+$corsFile = __DIR__ . '/../security/cors.php';
+if (file_exists($corsFile)) {
+    require_once $corsFile;
+} else {
+    // Vercel-spezifisches Fallback CORS
+    header("Access-Control-Allow-Origin: *");
+}
 
 // Nur POST-Requests zulassen
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -43,9 +50,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit(json_encode(['error' => 'Method not allowed']));
 }
 
-// Vercel-spezifische Limits (konservative Werte)
-// set_time_limit() ist in Vercel Functions begrenzt - entfernt
-// ini_set('memory_limit', '256M'); // Vercel Standard sollte reichen
+// Vercel-spezifische Zeitsperren beachten
+// Vercel hat für einzelne Functions eine 10-30 Sekunden Timeout-Grenze
+// Derzeitiger Code wird diesen Limit in der Regel nicht überschreiten
 
 // JSON-Content-Type
 header('Content-Type: application/json; charset=utf-8');
@@ -134,19 +141,22 @@ function validateInput($value, array $rule): true|string
 $vehicleContext = '';
 if (!empty($validated['vehicle']['id'])) {
     try {
-        require_once __DIR__ . '/../classes/Database.php';
-        $pdo = (new \Carfify\Classes\Database())->getPDO();
-        $stmt = $pdo->prepare("
-            SELECT make, model, variant, year_from, year_to
-            FROM vehicles
-            WHERE id = :id
-            LIMIT 1
-        ");
-        $stmt->execute([':id' => $validated['vehicle']['id']]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($row) {
-            $vehicleContext = "Fahrzeug: {$row['make']} {$row['model']} {$row['variant']} (Baujahre {$row['year_from']}-{$row['year_to']})\n";
+        $dbFile = __DIR__ . '/../classes/Database.php';
+        if (file_exists($dbFile)) {
+            require_once $dbFile;
+            $pdo = (new \Carfify\Classes\Database())->getPDO();
+            $stmt = $pdo->prepare("
+                SELECT make, model, variant, year_from, year_to
+                FROM vehicles
+                WHERE id = :id
+                LIMIT 1
+            ");
+            $stmt->execute([':id' => $validated['vehicle']['id']]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($row) {
+                $vehicleContext = "Fahrzeug: {$row['make']} {$row['model']} {$row['variant']} (Baujahre {$row['year_from']}-{$row['year_to']})\n";
+            }
         }
     } catch (Throwable $e) {
         // Fahrzeugdaten nicht kritisch - Fehler loggen aber durchlaufen
@@ -208,38 +218,35 @@ if ($validated['step'] === 1) {
         'content' => $vehicleContext . trim($validated['description']),
     ];
 } else {
-    // Rekonstruiere Dialog aus Session
+    // Rekonstruiere Dialog aus Session (outsource falls nötig)
     try {
         if (empty($validated['sessionId'])) {
             throw new Exception('No session ID for step > 1');
         }
         
-        $pdo = (new \Carfify\Classes\Database())->getPDO();
-        $stmt = $pdo->prepare("
-            SELECT q.question, q.answer
-            FROM diagnosis_questions q
-            JOIN diagnosis_sessions s ON s.id = q.session_id
-            WHERE s.id = :sid
-            ORDER BY q.id ASC
-        ");
-        $stmt->execute([':sid' => $validated['sessionId']]);
-        $hist = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        if (!$hist) {
-            // Session nicht gefunden → neu starten
-            $messages[] = [
-                'role'    => 'user',
-                'content' => $vehicleContext . trim($validated['description']),
-            ];
-        } else {
-            foreach ($hist as $row) {
-                $messages[] = ['role' => 'user', 'content' => $row['question']];
-                $messages[] = ['role' => 'assistant', 'content' => $row['answer']];
+        $dbFile = __DIR__ . '/../classes/Database.php';
+        if (file_exists($dbFile)) {
+            require_once $dbFile;
+            $pdo = (new \Carfify\Classes\Database())->getPDO();
+            $stmt = $pdo->prepare("
+                SELECT q.question, q.answer
+                FROM diagnosis_questions q
+                JOIN diagnosis_sessions s ON s.id = q.session_id
+                WHERE s.id = :sid
+                ORDER BY q.id ASC
+            ");
+            $stmt->execute([':sid' => $validated['sessionId']]);
+            $hist = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            if ($hist) {
+                foreach ($hist as $row) {
+                    $messages[] = ['role' => 'user', 'content' => $row['question']];
+                    $messages[] = ['role' => 'assistant', 'content' => $row['answer']];
+                }
             }
         }
     } catch (Throwable $e) {
-        // Bei Session-Fehlern neu starten
-        error_log('Session reconstruction failed: ' . $e->getMessage());
+        // Neu starten bei Session-Problemen
         $messages[] = [
             'role'    => 'user',
             'content' => $vehicleContext . trim($validated['description']),
@@ -268,7 +275,7 @@ try {
             'Content-Type: application/json',
         ],
         CURLOPT_POSTFIELDS     => json_encode($payload),
-        CURLOPT_TIMEOUT        => 20,
+        CURLOPT_TIMEOUT        => 25, // Vercel timeout: 30s
         CURLOPT_USERAGENT      => 'Carfify/1.0-php',
         CURLOPT_SSL_VERIFYPEER => true,
     ]);
@@ -279,10 +286,12 @@ try {
     curl_close($ch);
 
     if ($curlError) {
-        throw new Exception('CURL error: ' . $curlError);
+        error_log("CURL ERROR: {$curlError}");
+        throw new Exception('API connection failed');
     }
     
     if ($httpCode !== 200 || !$response) {
+        error_log("API response: HTTP {$httpCode}");
         throw new Exception("API error: HTTP {$httpCode}");
     }
 
@@ -290,66 +299,48 @@ try {
 
 } catch (Throwable $e) {
     http_response_code(502);
-    exit(json_encode(['error' => 'KI-API temporär nicht erreichbar']));
+    exit(json_encode([
+        'error' => 'KI-API temporär nicht erreichbar',
+        'debug' => getenv('DEBUG') === 'true' ? $e->getMessage() : null
+    ]));
 }
 
 $assistantText = $claudeResponse['content'][0]['text'] ?? '';
 
 // ------------------- RESPONSE SANITIZING SECTION -------------------
 
-// Extrahiere JSON aus KI-Antwort
-if (!preg_match('/\{(?:[^{}]|(?R))*\}/', $assistantText, $matches)) {
+if (empty($assistantText)) {
     http_response_code(500);
-    exit(json_encode(['error' => 'KI-Antwortformat ungültig']));
+    exit(json_encode(['error' => 'Keine KI-Antwort erhalten']));
+}
+
+// Extrahiere JSON aus KI-Antwort
+preg_match('/\{"questions":\[.*?\],"summary":"[^"]*".*?\}/s', $assistantText, $matches);
+if (empty($matches[0])) {
+    http_response_code(500);
+    exit(json_encode(['error' => 'Ungültiges Antwortformat']));
 }
 
 try {
     $diagnosisJson = json_decode($matches[0], true, 16, JSON_THROW_ON_ERROR);
 } catch (Throwable $e) {
     http_response_code(500);
-    exit(json_encode(['error' => 'KI-Antwort enthält kein gültiges JSON']));
-}
-
-// ------------------- SESSION PERSISTANCE SECTION -------------------
-
-try {
-    if (!empty($validated['sessionId']) && isset($diagnosisJson['summary'])) {
-        $stmt = $pdo->prepare("
-            INSERT INTO diagnosis_questions (session_id, question, answer, category)
-            VALUES (:sid, :q, :a, 'assistant')
-        ");
-        $stmt->execute([
-            ':sid' => $validated['sessionId'],
-            ':q'   => 'Anfrage-Schritt ' . $validated['step'],
-            ':a'   => $diagnosisJson['summary'],
-        ]);
-    }
-} catch (Throwable $e) {
-    // Session-Persistenz ist nicht kritisch
-    error_log('Session persistence failed: ' . $e->getMessage());
+    exit(json_encode(['error' => 'Fehler bei JSON-Verarbeitung']));
 }
 
 // ------------------- OUTPUT SECTION -------------------
-
-$debug = [];
-if (getenv('DEBUG') === 'true') {
-    $debug = [
-        'request_tokens'  => $claudeResponse['usage']['input_tokens'] ?? 0,
-        'response_tokens' => $claudeResponse['usage']['output_tokens'] ?? 0,
-        'step'            => $validated['step'],
-    ];
-}
 
 header('Cache-Control: no-cache, no-store, must-revalidate');
 header('Pragma: no-cache');
 header('Expires: 0');
 
-echo json_encode(
-    [
-        'step'      => $validated['step'],
-        'diagnosis' => $diagnosisJson,
-        'debug'     => $debug,
-    ],
-    JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT
-);
+echo json_encode([
+    'step'      => $validated['step'],
+    'diagnosis' => $diagnosisJson,
+    'debug'     => getenv('DEBUG') === 'true' ? [
+        'tokens' => $claudeResponse['usage'] ?? null,
+        'raw'    => substr($assistantText, 0, 200) . '...'
+    ] : null
+]);
+
 exit;

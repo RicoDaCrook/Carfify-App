@@ -1,44 +1,21 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "frontend/index.php",
-      "use": "vercel-php@0.6.1"
-    },
-    {
-      "src": "frontend/**/*.php",
-      "use": "vercel-php@0.6.1"
-    },
-    {
-      "src": "backend/api/**/*.php",
-      "use": "vercel-php@0.6.1"
-    }
-  ],
+
+  /* Wir bauen nur **eine** Haupt-PHP-Funktion. */
+  "functions": {
+    "frontend/index.php": { "runtime": "vercel-php@0.6.1" }
+  },
+
+  /* Diese Regel leitet ALLE Anfragen unverzüglich an das Front-End weiter. */
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/backend/api/$1"
-    },
-    {
-      "src": "/assets/(.*)",
-      "dest": "/frontend/assets/$1"
-    },
-    {
-      "src": "/(.*\\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot))",
-      "dest": "/frontend/$1",
-      "headers": {
-        "Cache-Control": "public, max-age=31536000, immutable"
-      }
-    },
     {
       "src": "/(.*)",
       "dest": "/frontend/index.php"
     }
   ],
-  "functions": {
-    "frontend/index.php": { "runtime": "vercel-php@0.6.1" },
-    "frontend/**/*.php": { "runtime": "vercel-php@0.6.1" },
-    "backend/api/**/*.php": { "runtime": "vercel-php@0.6.1" }
-  },
-  "env": { "PHP_VERSION": "8.1" }
+  
+  /* Umwelt-Parameter bleiben optional. */
+  "env": {
+    "PHP_VERSION": "8.1"
+  }
 }

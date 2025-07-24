@@ -26,6 +26,7 @@ class Database
     private PDO $conn;
 
     /* ------------------------------ Config ---------------------------- */
+    // Konfiguration aus Environment lesen, Fallback auf lokale Defaults.
     private const DB_HOST     = 'localhost';
     private const DB_PORT     = '5432';
     private const DB_NAME     = 'carfify';
@@ -45,25 +46,32 @@ class Database
     /* ------------------------------ Private Constructor ---------------------------- */
     private function __construct()
     {
+        // Umgebungsvariablen (Vercel secrets) nutzen, sonst Konstanten.
+        $host = $_ENV['DB_HOST']     ?? $_SERVER['DB_HOST']     ?? self::DB_HOST;
+        $port = $_ENV['DB_PORT']     ?? $_SERVER['DB_PORT']     ?? self::DB_PORT;
+        $name = $_ENV['DB_NAME']     ?? $_SERVER['DB_NAME']     ?? self::DB_NAME;
+        $user = $_ENV['DB_USER']     ?? $_SERVER['DB_USER']     ?? self::DB_USER;
+        $pass = $_ENV['DB_PASSWORD'] ?? $_SERVER['DB_PASSWORD'] ?? self::DB_PASSWORD;
+
         $dsn = sprintf(
             'pgsql:host=%s;port=%s;dbname=%s',
-            self::DB_HOST,
-            self::DB_PORT,
-            self::DB_NAME
+            $host,
+            $port,
+            $name
         );
 
         try {
             $this->conn = new PDO(
                 $dsn,
-                self::DB_USER,
-                self::DB_PASSWORD,
+                $user,
+                $pass,
                 self::PDO_OPTS
             );
-            
+
             // PostgreSQL-spezifische Einstellungen
             $this->conn->exec("SET NAMES '" . self::CHARSET . "'");
             $this->conn->exec("SET TIMEZONE TO UTC");
-            
+
         } catch (PDOException $e) {
             error_log("DB-Verbindung fehlgeschlagen: " . $e->getMessage());
             http_response_code(500);
@@ -93,7 +101,7 @@ class Database
     public function run(string $sql, array $params = []): \PDOStatement
     {
         $maxRetries = 2;
-        
+
         $tries = 0;
         retry:
         try {
@@ -174,8 +182,8 @@ class Database
             '08007', // Connection failure during transaction
             '08001'  // Unable to connect
         ];
-        
-        return in_array($e->getCode(), $retryableCodes) || 
+
+        return in_array($e->getCode(), $retryableCodes) ||
                strpos($e->getMessage(), 'deadlock') !== false;
     }
 
@@ -185,4 +193,3 @@ class Database
         throw new \Exception('Cannot unserialize Database Singleton.');
     }
 }
-
