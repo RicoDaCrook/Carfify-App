@@ -1,20 +1,23 @@
 {
   "version": 2,
-
-  /* Wir bauen nur **eine** Haupt-PHP-Funktion. */
   "functions": {
-    "frontend/index.php": { "runtime": "vercel-php@0.6.1" }
+    "frontend/index.php": { "runtime": "vercel-php@0.6.1" },
+    "backend/api/*.php": { "runtime": "vercel-php@0.6.1" }
   },
-
-  /* Diese Regel leitet ALLE Anfragen unverzüglich an das Front-End weiter. */
   "routes": [
+    {
+      "src": "/assets/(.*)",
+      "dest": "/frontend/assets/$1"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "/backend/api/$1"
+    },
     {
       "src": "/(.*)",
       "dest": "/frontend/index.php"
     }
   ],
-  
-  /* Umwelt-Parameter bleiben optional. */
   "env": {
     "PHP_VERSION": "8.1"
   }
