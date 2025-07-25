@@ -1,3 +1,3 @@
 ﻿<?php
 header("Content-Type: application/json");
-echo json_encode(["status" => "ok", "message" => "PHP läuft auf Vercel!"]);
+echo json_encode(["status" => "success", "message" => "API läuft perfekt!"], JSON_UNESCAPED_UNICODE);
