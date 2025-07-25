@@ -1,0 +1,13 @@
+# Carfify .htaccess
+RewriteEngine On
+
+# API-Routing
+RewriteRule ^api/(.*)$ api/$1.php [L,QSA]
+
+# Sichere Ordner
+RewriteRule ^(classes|config|includes)/.*$ - [F,L]
+
+# PHP-Sicherheit
+php_flag display_errors off
+php_value upload_max_filesize 10M
+php_value post_max_size 10M
