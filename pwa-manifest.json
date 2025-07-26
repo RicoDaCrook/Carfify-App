@@ -1,0 +1,35 @@
+{
+    "name": "Carfify - Auto Diagnose & Verkauf",
+    "short_name": "Carfify",
+    "description": "KI-gestützte Autodiagnose und intelligente Werkstattsuche mit Fahrzeugverkaufs-Feature",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#2563eb",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/assets/icons/icon-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/assets/icons/icon-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": ["auto", "utilities"],
+    "lang": "de",
+    "scope": "/",
+    "screenshots": [
+        {
+            "src": "/assets/screenshots/mobile-home.png",
+            "sizes": "390x844",
+            "type": "image/png",
+            "form_factor": "narrow"
+        }
+    ]
+}

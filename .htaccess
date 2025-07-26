@@ -1,13 +1,36 @@
-# Carfify .htaccess
+# Carfify Apache Configuration
+
+# Enable rewrite engine
 RewriteEngine On
 
-# API-Routing
-RewriteRule ^api/(.*)$ api/$1.php [L,QSA]
+# Handle API requests
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^api/(.*)$ api/$1.php [L]
 
-# Sichere Ordner
-RewriteRule ^(classes|config|includes)/.*$ - [F,L]
+# Handle PWA manifest
+RewriteRule ^pwa-manifest.json$ pwa-manifest.json [L]
 
-# PHP-Sicherheit
-php_flag display_errors off
-php_value upload_max_filesize 10M
-php_value post_max_size 10M
+# Handle service worker
+RewriteRule ^service-worker.js$ service-worker.js [L]
+
+# Security headers
+Header always set X-Content-Type-Options nosniff
+Header always set X-Frame-Options DENY
+Header always set X-XSS-Protection "1; mode=block"
+Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+# Cache static assets
+<FilesMatch "\.(css|js|png|jpg|jpeg|gif|ico|svg)$">
+    ExpiresActive On
+    ExpiresDefault "access plus 1 year"
+</FilesMatch>
+
+# Prevent access to sensitive files
+<Files ~ "^\.">
+    Require all denied
+</Files>
+
+<Files "config.php">
+    Require all denied
+</Files>
