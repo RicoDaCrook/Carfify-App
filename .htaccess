@@ -1,20 +1,10 @@
-# Carfify Apache Configuration
-
-# Enable rewrite engine
 RewriteEngine On
 
-# Handle API requests
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^api/(.*)$ api/$1.php [L]
+# Redirect to HTTPS
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-# Handle PWA manifest
-RewriteRule ^pwa-manifest.json$ pwa-manifest.json [L]
-
-# Handle service worker
-RewriteRule ^service-worker.js$ service-worker.js [L]
-
-# Security headers
+# Security Headers
 Header always set X-Content-Type-Options nosniff
 Header always set X-Frame-Options DENY
 Header always set X-XSS-Protection "1; mode=block"
@@ -26,11 +16,11 @@ Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains
     ExpiresDefault "access plus 1 year"
 </FilesMatch>
 
-# Prevent access to sensitive files
+# Deny access to sensitive files
 <Files ~ "^\.">
     Require all denied
 </Files>
 
-<Files "config.php">
+<Files "config/init.php">
     Require all denied
 </Files>

@@ -5,11 +5,11 @@ CREATE TABLE vehicles (
     id SERIAL PRIMARY KEY,
     make VARCHAR(50) NOT NULL,
     model VARCHAR(50) NOT NULL,
-    year INT NOT NULL CHECK (year >= 1900 AND year <= EXTRACT(YEAR FROM NOW()) + 1),
-    fuel_type VARCHAR(20) CHECK (fuel_type IN ('Benzin', 'Diesel', 'Elektro', 'Hybrid', 'Plug-in-Hybrid', 'Gas', 'Wasserstoff')),
-    transmission VARCHAR(20) CHECK (transmission IN ('Schaltgetriebe', 'Automatik', 'CVT', 'Doppelkupplung')),
-    engine_size INT, -- Hubraum in ccm
-    power_kw INT, -- Leistung in kW
+    year INT NOT NULL CHECK (year BETWEEN 1900 AND EXTRACT(YEAR FROM NOW()) + 1),
+    fuel_type VARCHAR(20) CHECK (fuel_type IN ('Benzin', 'Diesel', 'Elektro', 'Hybrid', 'Plug-in-Hybrid', 'LPG', 'CNG')),
+    transmission VARCHAR(20) CHECK (transmission IN ('Schaltgetriebe', 'Automatik', 'Direktschalt', 'CVT')),
+    engine_size INT, -- in ccm
+    power_kw INT, -- in kW
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -17,42 +17,48 @@ CREATE TABLE diagnosis_sessions (
     id SERIAL PRIMARY KEY,
     session_uuid UUID DEFAULT gen_random_uuid() NOT NULL UNIQUE,
     vehicle_id INT REFERENCES vehicles(id),
-    symptoms TEXT[], -- Array von Symptom-Strings
-    diagnosis_result JSONB,
-    estimated_cost NUMERIC(10,2),
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    current_step INT DEFAULT 1,
+    symptoms TEXT[], -- Array von Symptom-IDs
+    answers JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE diagnosis_questions (
     id SERIAL PRIMARY KEY,
-    question_de TEXT NOT NULL,
-    question_en TEXT NOT NULL,
-    symptom_category VARCHAR(50),
-    priority INT DEFAULT 1
+    step INT NOT NULL,
+    question_text_de TEXT NOT NULL,
+    question_text_en TEXT,
+    options JSONB, -- {"option_value": "option_text"}
+    next_step_map JSONB, -- {"option_value": next_step}
+    is_final BOOLEAN DEFAULT FALSE,
+    possible_diagnoses TEXT[] -- Array von Diagnose-IDs
 );
 
 CREATE TABLE workshops (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    address VARCHAR(200) NOT NULL,
-    lat NUMERIC(10,8) NOT NULL,
-    lng NUMERIC(11,8) NOT NULL,
-    phone VARCHAR(20),
+    address TEXT NOT NULL,
+    lat NUMERIC(9,6),
+    lng NUMERIC(9,6),
+    phone VARCHAR(30),
     email VARCHAR(100),
-    specialties TEXT[], -- Array von Spezialisierungen
+    website VARCHAR(255),
+    specializations TEXT[], -- z.B. ['Elektrik', 'Motor']
     rating NUMERIC(2,1) CHECK (rating >= 0 AND rating <= 5),
     review_count INT DEFAULT 0,
-    price_range VARCHAR(20), -- '€', '€€', '€€€'
+    price_range VARCHAR(10) CHECK (price_range IN ('€', '€€', '€€€')),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE price_tracking (
     id SERIAL PRIMARY KEY,
-    session_uuid UUID REFERENCES diagnosis_sessions(session_uuid),
-    workshop_id INT REFERENCES workshops(id),
-    service_type VARCHAR(50),
-    estimated_price NUMERIC(10,2),
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    vehicle_id INT REFERENCES vehicles(id),
+    service_type VARCHAR(50) NOT NULL,
+    avg_price NUMERIC(8,2),
+    price_range_min NUMERIC(8,2),
+    price_range_max NUMERIC(8,2),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- NEUE TABELLE für Fahrzeugverkäufe
@@ -61,7 +67,7 @@ CREATE TABLE vehicle_sales (
     user_id INT, -- Später für registrierte Nutzer
     session_uuid UUID DEFAULT gen_random_uuid() NOT NULL UNIQUE,
     vehicle_id INT NOT NULL REFERENCES vehicles(id),
-    mileage INT NOT NULL CHECK (mileage >= 0),
+    mileage INT NOT NULL,
     vehicle_condition_report TEXT, -- JSON-String mit Zustandsdetails
     image_urls TEXT[], -- Array von Bild-URLs
     asking_price NUMERIC(10, 2),
@@ -71,14 +77,13 @@ CREATE TABLE vehicle_sales (
     sold_at TIMESTAMPTZ
 );
 
--- Beispiel-Workshops einfügen
-INSERT INTO workshops (name, address, lat, lng, phone, specialties, rating, price_range) VALUES
-('Kfz Meister Schmidt', 'Hauptstraße 123, 10115 Berlin', 52.5200, 13.4050, '030 12345678', ARRAY['Motor', 'Getriebe'], 4.5, '€€'),
-('AutoService Müller', 'Berliner Allee 45, 40212 Düsseldorf', 51.2277, 6.7735, '0211 9876543', ARRAY['Elektrik', 'Bremsen'], 4.2, '€'),
-('Premium Autowerkstatt', 'Marienplatz 8, 80331 München', 48.1371, 11.5754, '089 5551234', ARRAY['Luxusfahrzeuge', 'Diagnose'], 4.8, '€€€');
+-- Beispieldaten für Diagnose-Fragen
+INSERT INTO diagnosis_questions (step, question_text_de, options, next_step_map, is_final) VALUES
+(1, 'Was ist das Hauptproblem mit Ihrem Fahrzeug?', '{"engine": "Motorprobleme", "electrics": "Elektrische Probleme", "brakes": "Bremsen", "suspension": "Fahrwerk", "other": "Sonstiges"}', '{"engine": 2, "electrics": 3, "brakes": 4, "suspension": 5, "other": 6}', false),
+(2, 'Beschreiben Sie das Motorproblem näher', '{"noise": "Ungewöhnliche Geräusche", "power": "Leistungsverlust", "smoke": "Rauch aus Auspuff", "start": "Startprobleme"}', '{"noise": 20, "power": 21, "smoke": 22, "start": 23}', false),
+(20, 'Diagnose: Motorgeräusche - Mögliche Ursache: Ventile oder Zahnriemen', '{}', '{}', true);
 
--- Beispiel-Fahrzeuge
-INSERT INTO vehicles (make, model, year, fuel_type, transmission, engine_size, power_kw) VALUES
-('Volkswagen', 'Golf', 2020, 'Benzin', 'Automatik', 1395, 110),
-('BMW', '3er', 2022, 'Diesel', 'Automatik', 1995, 140),
-('Audi', 'A4', 2021, 'Benzin', 'Schaltgetriebe', 1984, 150);
+-- Beispiel-Workshops
+INSERT INTO workshops (name, address, lat, lng, phone, specializations, rating, review_count, price_range) VALUES
+('Meister Müller GmbH', 'Hauptstraße 45, 10115 Berlin', 52.5200, 13.4050, '030-12345678', '{"Motor", "Elektrik"}', 4.8, 127, '€€'),
+('AutoService Schmidt', 'Berliner Allee 12, 10117 Berlin', 52.5300, 13.4100, '030-87654321', '{"Bremsen", "Fahrwerk"}', 4.5, 89, '€');

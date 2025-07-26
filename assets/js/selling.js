@@ -1,274 +1,219 @@
-// Carfify Fahrzeugverkauf JavaScript
+// Verkaufs-Funktionalität
 
-let sellingData = {
-    vehicle_id: null,
-    mileage: 0,
+let sellingSession = {
+    vehicleId: null,
+    mileage: null,
     condition: {},
     images: [],
-    images_analysis: {}
+    priceEstimate: null
 };
 
-// Verkaufsprozess starten
 function startSelling() {
-    openModal('selling-modal');
-    loadSellingForm();
+    showModal('selling-modal');
+    loadSellingStep('condition');
 }
 
-// Verkaufsformular laden
-function loadSellingForm() {
-    fetch('templates/sell_vehicle/condition_form.php')
-        .then(response => response.text())
-        .then(html => {
-            document.getElementById('selling-content').innerHTML = html;
-            setupSellingForm();
-            setupImageUpload();
-        });
-}
-
-// Formular-Setup
-function setupSellingForm() {
-    const form = document.getElementById('condition-form');
-    if (form) {
-        form.addEventListener('submit', handleConditionSubmit);
+function loadSellingStep(step) {
+    switch(step) {
+        case 'condition':
+            loadConditionForm();
+            break;
+        case 'photos':
+            loadPhotoUpload();
+            break;
+        case 'price':
+            loadPriceEstimate();
+            break;
+        case 'result':
+            loadSellingResult();
+            break;
     }
 }
 
-// Bild-Upload Setup
-function setupImageUpload() {
-    const uploadArea = document.getElementById('upload-area');
-    const fileInput = document.getElementById('image-upload');
-    const preview = document.getElementById('image-preview');
+function loadConditionForm() {
+    const content = document.getElementById('selling-content');
     
-    if (!uploadArea || !fileInput) return;
-    
-    // Drag & Drop
-    uploadArea.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        uploadArea.classList.add('dragover');
-    });
-    
-    uploadArea.addEventListener('dragleave', () => {
-        uploadArea.classList.remove('dragover');
-    });
-    
-    uploadArea.addEventListener('drop', (e) => {
-        e.preventDefault();
-        uploadArea.classList.remove('dragover');
-        handleFiles(e.dataTransfer.files);
-    });
-    
-    uploadArea.addEventListener('click', () => {
-        fileInput.click();
-    });
-    
-    fileInput.addEventListener('change', (e) => {
-        handleFiles(e.target.files);
-    });
-}
-
-// Dateien verarbeiten
-function handleFiles(files) {
-    const preview = document.getElementById('image-preview');
-    
-    Array.from(files).forEach(file => {
-        if (!file.type.startsWith('image/')) return;
-        
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const img = document.createElement('img');
-            img.src = e.target.result;
-            img.className = 'preview-image';
-            
-            const container = document.createElement('div');
-            container.className = 'image-container';
-            container.appendChild(img);
-            
-            const removeBtn = document.createElement('button');
-            removeBtn.className = 'remove-image';
-            removeBtn.innerHTML = '×';
-            removeBtn.onclick = () => {
-                container.remove();
-                sellingData.images = sellingData.images.filter(img => img !== e.target.result);
-            };
-            
-            container.appendChild(removeBtn);
-            preview.appendChild(container);
-            
-            sellingData.images.push(e.target.result);
-        };
-        reader.readAsDataURL(file);
-    });
-    
-    // Bildanalyse simulieren
-    simulateImageAnalysis();
-}
-
-// Bildanalyse simulieren
-function simulateImageAnalysis() {
-    // In echter Implementierung würde hier eine KI-Analyse stattfinden
-    setTimeout(() => {
-        sellingData.images_analysis = {
-            damages: [
-                { type: 'scratch', location: 'front_bumper', severity: 'minor' },
-                { type: 'dent', location: 'rear_door', severity: 'minor' }
-            ],
-            overall_condition: 'good',
-            paint_quality: 'excellent'
-        };
-        
-        showNotification('Bildanalyse abgeschlossen', 'success');
-    }, 2000);
-}
-
-// Formular absenden
-function handleConditionSubmit(e) {
-    e.preventDefault();
-    
-    const formData = new FormData(e.target);
-    
-    // Daten sammeln
-    sellingData.mileage = parseInt(formData.get('mileage'));
-    sellingData.condition = {
-        accident_free: formData.get('accident_free') === '1',
-        service_history: formData.get('service_history') === '1',
-        first_owner: formData.get('first_owner') === '1',
-        non_smoker: formData.get('non_smoker') === '1',
-        additional_info: formData.get('additional_info')
-    };
-    
-    // Preis schätzen
-    estimatePrice();
-}
-
-// Preisschätzung
-function estimatePrice() {
-    const payload = {
-        vehicle_id: sellingData.vehicle_id || 1, // Standard-ID für Demo
-        mileage: sellingData.mileage,
-        condition_report: JSON.stringify(sellingData.condition),
-        images_analysis: sellingData.images_analysis
-    };
-    
-    fetch('api/estimate_price.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showSellingResult(data);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showNotification('Preisschätzung fehlgeschlagen', 'error');
-    });
-}
-
-// Ergebnis anzeigen
-function showSellingResult(data) {
-    fetch('templates/sell_vehicle/result_page.php')
+    fetch('templates/sell_vehicle/condition_form.php')
         .then(response => response.text())
         .then(html => {
-            document.getElementById('selling-content').innerHTML = html;
+            content.innerHTML = html;
             
-            // Preis anzeigen
-            document.getElementById('min-price').textContent = formatCurrency(data.price_range.min);
-            document.getElementById('max-price').textContent = formatCurrency(data.price_range.max);
-            
-            // Checkliste generieren
-            generateChecklist(data);
+            // Form-Handler
+            document.getElementById('condition-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                sellingSession.vehicleId = document.getElementById('vehicle-select').value;
+                sellingSession.mileage = parseInt(document.getElementById('mileage').value);
+                sellingSession.condition = {
+                    accident_free: document.getElementById('accident-free').checked,
+                    service_history: document.getElementById('service-history').checked,
+                    first_owner: document.getElementById('first-owner').checked,
+                    non_smoker: document.getElementById('non-smoker').checked
+                };
+                
+                loadSellingStep('photos');
+            });
         });
 }
 
-// Checkliste generieren
-function generateChecklist(data) {
-    const checklist = document.getElementById('checklist-items');
+function loadPhotoUpload() {
+    const content = document.getElementById('selling-content');
+    
+    content.innerHTML = `
+        <h3>Fahrzeugfotos hochladen</h3>
+        <p>Bitte laden Sie Fotos von folgenden Perspektiven hoch:</p>
+        
+        <div class="photo-upload-section">
+            <div class="photo-upload" data-type="front">
+                <label>Frontansicht</label>
+                <input type="file" accept="image/*" onchange="handlePhotoUpload(this, 'front')">
+                <img id="preview-front" style="display:none; max-width:200px;">
+            </div>
+            
+            <div class="photo-upload" data-type="back">
+                <label>Heckansicht</label>
+                <input type="file" accept="image/*" onchange="handlePhotoUpload(this, 'back')">
+                <img id="preview-back" style="display:none; max-width:200px;">
+            </div>
+            
+            <div class="photo-upload" data-type="side">
+                <label>Seitenansicht</label>
+                <input type="file" accept="image/*" onchange="handlePhotoUpload(this, 'side')">
+                <img id="preview-side" style="display:none; max-width:200px;">
+            </div>
+            
+            <div class="photo-upload" data-type="interior">
+                <label>Innenraum</label>
+                <input type="file" accept="image/*" onchange="handlePhotoUpload(this, 'interior')">
+                <img id="preview-interior" style="display:none; max-width:200px;">
+            </div>
+            
+            <div class="photo-upload" data-type="dashboard">
+                <label>Tacho</label>
+                <input type="file" accept="image/*" onchange="handlePhotoUpload(this, 'dashboard')">
+                <img id="preview-dashboard" style="display:none; max-width:200px;">
+            </div>
+        </div>
+        
+        <button onclick="analyzePhotos()" id="analyze-btn" disabled>Fotos analysieren</button>
+    `;
+}
+
+function handlePhotoUpload(input, type) {
+    const file = input.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById(`preview-${type}`).src = e.target.result;
+            document.getElementById(`preview-${type}`).style.display = 'block';
+            
+            // Speichere Bild-URL
+            sellingSession.images.push({
+                type: type,
+                url: e.target.result
+            });
+            
+            // Aktiviere Analyse-Button wenn alle Bilder hochgeladen
+            if (sellingSession.images.length >= 3) {
+                document.getElementById('analyze-btn').disabled = false;
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+function analyzePhotos() {
+    // Simulierte Bildanalyse
+    // In Produktion würde hier die Image Analysis API aufgerufen
+    const mockAnalysis = {
+        damages: [
+            { type: 'scratch', location: 'front_bumper', severity: 'minor' },
+            { type: 'dent', location: 'left_door', severity: 'minor' }
+        ],
+        overall_condition: 'good'
+    };
+    
+    sellingSession.imageAnalysis = mockAnalysis;
+    loadSellingStep('price');
+}
+
+function loadPriceEstimate() {
+    const content = document.getElementById('selling-content');
+    content.innerHTML = '<p>Analysiere Marktpreise...</p>';
+    
+    const formData = new FormData();
+    formData.append('vehicle_id', sellingSession.vehicleId);
+    formData.append('mileage', sellingSession.mileage);
+    formData.append('condition', JSON.stringify(sellingSession.condition));
+    formData.append('image_analysis', JSON.stringify(sellingSession.imageAnalysis));
+    
+    fetch('api/estimate_price.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        sellingSession.priceEstimate = data;
+        loadSellingStep('result');
+    });
+}
+
+function loadSellingResult() {
+    const content = document.getElementById('selling-content');
+    
+    fetch('templates/sell_vehicle/result_page.php')
+        .then(response => response.text())
+        .then(html => {
+            content.innerHTML = html;
+            
+            // Fülle Preisschätzung
+            document.getElementById('price-range').textContent = 
+                `${sellingSession.priceEstimate.estimated_price.min}€ - ${sellingSession.priceEstimate.estimated_price.max}€`;
+            document.getElementById('average-price').textContent = 
+                `${sellingSession.priceEstimate.estimated_price.average}€`;
+            
+            // Generiere Checkliste
+            generateChecklist();
+        });
+}
+
+function generateChecklist() {
+    const checklist = document.getElementById('selling-checklist');
     const items = [
-        'Fahrzeug gründlich reinigen (Innen & Außen)',
-        'Alle Fahrzeugdokumente zusammenstellen',
-        'HU/AU Bericht prüfen und ggf. erneuern',
-        'Serviceheft vervollständigen',
-        'Zweitschlüssel und Bordliteratur bereitstellen',
-        'Rechnungen für Wartungen/Reparaturen sammeln',
-        'Fahrzeugbilder für Inserat erstellen',
-        'Kaufvertrag vorbereiten',
-        'Probefahrtbedingungen festlegen',
-        'Preisverhandlungsspielraum definieren'
+        'Fahrzeug gründlich reinigen (innen & außen)',
+        'Alle wichtigen Dokumente zusammenstellen (Zulassungsbescheinigung, Serviceheft, Rechnungen)',
+        'TÜV/AU-Prüfung ggf. neu machen',
+        'Kleine Mängel beheben',
+        'Anzeige mit allen Details erstellen',
+        'Probefahrten organisieren',
+        'Kaufvertrag vorbereiten'
     ];
     
     items.forEach(item => {
         const li = document.createElement('li');
-        li.innerHTML = `
-            <input type="checkbox" onchange="toggleChecklistItem(this)">
-            <span>${item}</span>
-        `;
+        li.innerHTML = `<label><input type="checkbox"> ${item}</label>`;
         checklist.appendChild(li);
     });
 }
 
-// Checklist-Item umschalten
-function toggleChecklistItem(checkbox) {
-    const li = checkbox.closest('li');
-    if (checkbox.checked) {
-        li.classList.add('completed');
-    } else {
-        li.classList.remove('completed');
-    }
-}
-
-// Kaufvertrag generieren
 function generateContract() {
-    const contractData = {
-        vehicle_id: sellingData.vehicle_id || 1,
-        seller_info: {
-            name: 'Max Mustermann',
-            address: 'Musterstraße 1, 12345 Musterstadt',
-            phone: '0123 4567890'
-        },
-        buyer_info: {
-            name: '', // Wird vom Nutzer ausgefüllt
-            address: '',
-            phone: ''
-        },
-        price: 15000, // Geschätzter Preis
-        vin: 'W0L000051T2123456',
-        mileage: sellingData.mileage
-    };
+    const formData = new FormData();
+    formData.append('vehicle_id', sellingSession.vehicleId);
+    formData.append('price', sellingSession.priceEstimate.estimated_price.average);
+    formData.append('seller_data', JSON.stringify({
+        name: 'Max Mustermann',
+        address: 'Musterstraße 1, 12345 Musterstadt',
+        phone: '01234-567890'
+    }));
     
     fetch('api/generate_contract.php', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(contractData)
+        body: formData
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success) {
-            window.open(data.download_url, '_blank');
-            showNotification('Kaufvertrag wurde generiert', 'success');
-        }
+        // Öffne Kaufvertrag in neuem Tab
+        const newWindow = window.open();
+        newWindow.document.write(data.contract_html);
     });
-}
-
-// Checkliste downloaden
-function downloadChecklist() {
-    const checklist = document.getElementById('checklist-items');
-    const items = Array.from(checklist.querySelectorAll('li')).map(li => 
-        li.querySelector('span').textContent
-    );
-    
-    const content = `Carfify Verkaufs-Checkliste\n\n${items.map((item, i) => `${i + 1}. ${item}`).join('\n')}`;
-    
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'verkaufs-checkliste.txt';
-    a.click();
-    URL.revokeObjectURL(url);
 }
