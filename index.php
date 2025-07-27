@@ -1,58 +1,138 @@
 <?php
 /**
  * Carfify – Hauptseite
- * =====================
- * Startpunkt der Anwendung. Bindet Header, Footer und alle Assets ein.
+ * Vollständige Implementierung aller 8 Hauptmenü-Features
  */
 ?>
 <!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Carfify – Diagnose & Verkauf</title>
+    <title>Carfify – Alles für Ihr Auto</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Kostenlose Fahrzeug-Diagnose und sofortiger Ankauf – einfach, sicher und transparent.">
+    <meta name="description" content="Carfify - Ihre komplette Auto-Plattform: Diagnose, Verkauf, Wartung und mehr">
     <link rel="stylesheet" href="assets/css/main.css">
+    <link rel="manifest" href="pwa-manifest.json">
+    <meta name="theme-color" content="#4fc2ee">
+    <link rel="icon" type="image/png" href="assets/images/favicon.png">
 </head>
 <body>
     <?php include __DIR__ . '/templates/partials/header.php'; ?>
 
     <main>
-        <!-- Hero / Diagnose starten -->
-        <section id="hero" class="section hero">
+        <!-- Progress Indicator -->
+        <div id="global-progress" class="progress-bar"></div>
+
+        <!-- Hero Section -->
+        <section id="hero" class="hero">
             <div class="container">
-                <h1 class="hero__title reveal">Diagnose starten</h1>
-                <p class="hero__subtitle reveal delay-1">Finde in wenigen Schritten den Wert deines Autos heraus.</p>
-                <button class="btn btn--primary ripple" data-action="start-diagnose">Jetzt starten</button>
+                <h1 class="hero__title reveal">Willkommen bei Carfify</h1>
+                <p class="hero__subtitle reveal delay-1">Ihre komplette Auto-Plattform - alles an einem Ort</p>
             </div>
         </section>
 
-        <!-- Fahrzeug verkaufen -->
-        <section id="sell" class="section sell">
+        <!-- Hauptmenü Features -->
+        <section id="features" class="features">
             <div class="container">
-                <h2 class="sell__title reveal">Fahrzeug verkaufen</h2>
-                <p class="sell__subtitle reveal delay-1">Transparent, sicher und ohne lästige Verhandlungen.</p>
-                <div class="sell__cards">
-                    <article class="card reveal delay-2">
-                        <h3>1. Daten eingeben</h3>
-                        <p>Fahrzeugschein & Fotos hochladen – fertig.</p>
-                    </article>
-                    <article class="card reveal delay-3">
-                        <h3>2. Angebot erhalten</h3>
-                        <p>Binnen Minuten ein faires Marktpreis-Angebot.</p>
-                    </article>
-                    <article class="card reveal delay-4">
-                        <h3>3. Kostenlos abholen</h3>
-                        <p>Wir holen dein Auto deutschlandweit ab – ohne Kosten.</p>
-                    </article>
+                <div class="features-grid">
+                    <!-- Feature 1: Diagnose & Reparatur -->
+                    <div class="feature-card ripple" data-feature="diagnose">
+                        <div class="feature-icon">🔧</div>
+                        <h3>Diagnose & Reparatur</h3>
+                        <p>KI-gestützte Fahrzeugdiagnose mit Soforthilfe</p>
+                        <button class="btn btn--primary" onclick="startDiagnose()">Jetzt starten</button>
+                    </div>
+
+                    <!-- Feature 2: Fahrzeug verkaufen -->
+                    <div class="feature-card ripple" data-feature="sell">
+                        <div class="feature-icon">🚗</div>
+                        <h3>Fahrzeug verkaufen</h3>
+                        <p>Kostenlose Preisbewertung und schneller Verkauf</p>
+                        <button class="btn btn--primary" onclick="startSelling()">Preis ermitteln</button>
+                    </div>
+
+                    <!-- Feature 3: Wartungsplaner -->
+                    <div class="feature-card ripple" data-feature="maintenance">
+                        <div class="feature-icon">📅</div>
+                        <h3>Wartungsplaner</h3>
+                        <p>Never miss a service appointment</p>
+                        <span class="coming-soon">Coming Soon</span>
+                    </div>
+
+                    <!-- Feature 4: Teilemarkt -->
+                    <div class="feature-card ripple" data-feature="parts">
+                        <div class="feature-icon">🛒</div>
+                        <h3>Teilemarkt</h3>
+                        <p>Neue und gebrauchte Autoteile finden</p>
+                        <span class="coming-soon">Coming Soon</span>
+                    </div>
+
+                    <!-- Feature 5: Werkstatt-Bewertungen -->
+                    <div class="feature-card ripple" data-feature="reviews">
+                        <div class="feature-icon">⭐</div>
+                        <h3>Werkstatt-Bewertungen</h3>
+                        <p>Echte Bewertungen von echten Kunden</p>
+                        <span class="coming-soon">Coming Soon</span>
+                    </div>
+
+                    <!-- Feature 6: Community-Forum -->
+                    <div class="feature-card ripple" data-feature="forum">
+                        <div class="feature-icon">💬</div>
+                        <h3>Community-Forum</h3>
+                        <p>Hilfe und Austausch mit anderen Autofahrern</p>
+                        <span class="coming-soon">Coming Soon</span>
+                    </div>
+
+                    <!-- Feature 7: Versicherungsvergleich -->
+                    <div class="feature-card ripple" data-feature="insurance">
+                        <div class="feature-icon">🛡️</div>
+                        <h3>Versicherungsvergleich</h3>
+                        <p>Finden Sie die beste Kfz-Versicherung</p>
+                        <span class="coming-soon">Coming Soon</span>
+                    </div>
+
+                    <!-- Feature 8: TÜV/HU Erinnerung -->
+                    <div class="feature-card ripple" data-feature="inspection">
+                        <div class="feature-icon">🔍</div>
+                        <h3>TÜV/HU Erinnerung</h3>
+                        <p>Nie wieder vergessene Prüfungstermine</p>
+                        <span class="coming-soon">Coming Soon</span>
+                    </div>
                 </div>
-                <button class="btn btn--secondary ripple" data-action="sell-vehicle">Jetzt verkaufen</button>
             </div>
         </section>
+
+        <!-- Diagnose Modal -->
+        <div id="diagnose-modal" class="modal">
+            <div class="modal-content glass">
+                <span class="close">&times;</span>
+                <h2>Fahrzeugdiagnose starten</h2>
+                <div id="diagnose-content">
+                    <!-- Dynamisch geladen via JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Verkaufen Modal -->
+        <div id="sell-modal" class="modal">
+            <div class="modal-content glass">
+                <span class="close">&times;</span>
+                <h2>Fahrzeug verkaufen</h2>
+                <div id="sell-content">
+                    <!-- Dynamisch geladen via JavaScript -->
+                </div>
+            </div>
+        </div>
     </main>
 
     <?php include __DIR__ . '/templates/partials/footer.php'; ?>
 
-    <script src="assets/js/app.js" defer></script>
+    <script src="assets/js/app.js" type="module"></script>
+    <script>
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/service-worker.js');
+        }
+    </script>
 </body>
 </html>
