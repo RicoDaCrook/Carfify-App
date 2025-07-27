@@ -16,7 +16,6 @@
 </head>
 <body>
     <?php include __DIR__ . '/templates/partials/header.php'; ?>
-
     <main>
         <!-- Hero / Diagnose starten -->
         <section id="hero" class="section hero">
@@ -26,7 +25,6 @@
                 <button class="btn btn--primary ripple" data-action="start-diagnose">Jetzt starten</button>
             </div>
         </section>
-
         <!-- Fahrzeug verkaufen -->
         <section id="sell" class="section sell">
             <div class="container">
@@ -50,9 +48,7 @@
             </div>
         </section>
     </main>
-
     <?php include __DIR__ . '/templates/partials/footer.php'; ?>
-
     <script src="assets/js/app.js" defer></script>
 </body>
 </html>
