@@ -1,91 +1,109 @@
 <?php
-require_once '../config/init.php';
+/**
+ * diagnose.php
+ * Endpunkt zur Durchführung einer KI-Diagnose.
+ * Erwartet JSON-Body mit vehicle_id, problem_description und optionalen user_answers.
+ * Gibt Diagnoseergebnis (JSON) zurück.
+ */
 
-$method = $_SERVER['REQUEST_METHOD'];
+header('Content-Type: application/json; charset=utf-8');
 
-switch ($method) {
-    case 'POST':
-        handleDiagnosis($_POST);
-        break;
-    case 'GET':
-        getDiagnosisSteps($_GET);
-        break;
-    default:
-        http_response_code(405);
-        echo json_encode(['error' => 'Methode nicht erlaubt']);
+// CORS erlauben
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
+
+// OPTIONS-Request sofort beantworten
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
 }
 
-function handleDiagnosis($data) {
-    global $pdo;
-    
-    $session_uuid = $data['session_uuid'] ?? null;
-    $step = intval($data['step'] ?? 1);
-    $answer = $data['answer'] ?? null;
-    
-    if (!$session_uuid) {
-        $session_uuid = generateUUID();
-    }
-    
-    // Session speichern/aktualisieren
-    $stmt = $pdo->prepare("INSERT INTO diagnosis_sessions (session_uuid, current_step, answers) 
-                          VALUES (?, ?, ?) 
-                          ON CONFLICT (session_uuid) 
-                          DO UPDATE SET current_step = EXCLUDED.current_step, 
-                                       answers = EXCLUDED.answers, 
-                                       updated_at = NOW()");
-    $stmt->execute([$session_uuid, $step, json_encode([$step => $answer])]);
-    
-    // Nächste Frage oder Diagnose
-    $nextStep = getNextStep($step, $answer);
-    
-    if ($nextStep === 'diagnosis') {
-        $diagnosis = generateDiagnosis($session_uuid);
-        echo json_encode(['diagnosis' => $diagnosis, 'session_uuid' => $session_uuid]);
-    } else {
-        $question = getQuestion($nextStep);
-        echo json_encode(['question' => $question, 'session_uuid' => $session_uuid]);
-    }
+// Nur POST erlauben
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['error' => 'Nur POST erlaubt.']);
+    exit();
 }
 
-function generateDiagnosis($session_uuid) {
-    // Hier würde normalerweise die Claude API aufgerufen
-    // Für Demo: Simulierte Antwort
+// JSON-Body einlesen
+$input = json_decode(file_get_contents('php://input'), true);
+if (!is_array($input)) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Ungültiges JSON.']);
+    exit();
+}
+
+$vehicle_id = $input['vehicle_id'] ?? null;
+$problem_description = $input['problem_description'] ?? '';
+$user_answers = $input['user_answers'] ?? [];
+
+if (!$vehicle_id || trim($problem_description) === '') {
+    http_response_code(400);
+    echo json_encode(['error' => 'vehicle_id und problem_description erforderlich.']);
+    exit();
+}
+
+// Datenbankverbindung
+require_once __DIR__ . '/../config/database.php';
+
+// Fahrzeug abrufen
+$pdo = new PDO(DB_DSN, DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$stmt = $pdo->prepare("SELECT * FROM vehicles WHERE id = :id");
+$stmt->execute([':id' => $vehicle_id]);
+$vehicle = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$vehicle) {
+    http_response_code(404);
+    echo json_encode(['error' => 'Fahrzeug nicht gefunden.']);
+    exit();
+}
+
+// Simulierter Aufruf der Claude API
+// In Produktion: HTTP-Request an Anthropic Claude API
+$diagnosis = simulateClaudeDiagnosis($vehicle, $problem_description, $user_answers);
+
+// Diagnose speichern (optional)
+$stmt = $pdo->prepare(
+    "INSERT INTO diagnoses (vehicle_id, problem_description, diagnosis_json, created_at)
+     VALUES (:vid, :prob, :diag, NOW())"
+);
+$stmt->execute([
+    ':vid' => $vehicle_id,
+    ':prob' => $problem_description,
+    ':diag' => json_encode($diagnosis)
+]);
+
+echo json_encode($diagnosis);
+
+/**
+ * Simuliert den Aufruf der Claude API.
+ * @param array $vehicle
+ * @param string $problem
+ * @param array $answers
+ * @return array
+ */
+function simulateClaudeDiagnosis(array $vehicle, string $problem, array $answers): array
+{
+    // Vereinfachte Logik zur Simulation
+    $possibleIssues = [
+        'Bremsen' => ['Bremsbeläge verschlissen', 'Bremsflüssigkeit niedrig'],
+        'Motor' => ['Zündkerzen defekt', 'Ölstand zu niedrig'],
+        'Elektrik' => ['Batterie schwach', 'Sicherung durchgebrannt'],
+        'Getriebe' => ['Getriebeöl niedrig', 'Kupplung verschleißt'],
+    ];
+
+    // Dummy-Kategorie auswählen
+    $category = array_keys($possibleIssues)[rand(0, count($possibleIssues) - 1)];
+    $issue = $possibleIssues[$category][rand(0, count($possibleIssues[$category]) - 1)];
+
     return [
-        'problem' => 'Motorgeräusche',
-        'description' => 'Basierend auf Ihren Angaben deutet alles auf ein Problem mit den Ventilen oder dem Zahnriemen hin.',
-        'severity' => 'mittel',
-        'estimated_cost' => '300-600€',
-        'next_steps' => ['Werkstatt aufsuchen', 'Diagnosetest durchführen']
+        'category' => $category,
+        'issue' => $issue,
+        'severity' => rand(1, 5),
+        'estimated_cost_min' => rand(50, 200),
+        'estimated_cost_max' => rand(200, 800),
+        'next_questions' => [], // Optional: weitere Rückfragen
+        'workshop_category' => strtolower($category)
     ];
 }
-
-function getQuestion($step) {
-    global $pdo;
-    $stmt = $pdo->prepare("SELECT * FROM diagnosis_questions WHERE step = ?");
-    $stmt->execute([$step]);
-    return $stmt->fetch(PDO::FETCH_ASSOC);
-}
-
-function getNextStep($currentStep, $answer) {
-    global $pdo;
-    $stmt = $pdo->prepare("SELECT next_step_map FROM diagnosis_questions WHERE step = ?");
-    $stmt->execute([$currentStep]);
-    $map = $stmt->fetchColumn();
-    
-    if ($map) {
-        $map = json_decode($map, true);
-        return $map[$answer] ?? 'diagnosis';
-    }
-    return 'diagnosis';
-}
-
-function generateUUID() {
-    return sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
-        mt_rand(0, 0xffff), mt_rand(0, 0xffff),
-        mt_rand(0, 0xffff),
-        mt_rand(0, 0x0fff) | 0x4000,
-        mt_rand(0, 0x3fff) | 0x8000,
-        mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
-    );
-}
-?>

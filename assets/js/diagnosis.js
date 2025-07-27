@@ -1,150 +1,165 @@
-// Diagnose-Funktionalität
+/**
+ * Carfify – Diagnose-Modul
+ * Verwaltet die gesamte Logik der Fehlerdiagnose:
+ *  - dynamisches 3-Säulen-Layout
+ *  - Berechnung der Sicherheit
+ *  - Anzeige von Anleitungen
+ *  - permanenter Chat-Button
+ */
 
-function startDiagnosis() {
-    showModal('diagnosis-modal');
-    loadDiagnosisStep(1);
-}
+export function initDiagnosis() {
+  'use strict';
 
-function loadDiagnosisStep(step, sessionUuid = null, answer = null) {
-    const content = document.getElementById('diagnosis-content');
-    
-    fetch('api/diagnose.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `step=${step}&session_uuid=${sessionUuid || ''}&answer=${answer || ''}`
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.diagnosis) {
-            showDiagnosisResult(data.diagnosis);
-        } else if (data.question) {
-            showQuestion(data.question, data.session_uuid);
-        }
-    })
-    .catch(error => {
-        content.innerHTML = '<p>Fehler beim Laden der Diagnose</p>';
-    });
-}
+  const state = {
+    currentStep: 0,
+    answers: [],
+    questions: [],
+    certainty: 0,
+    chatOpen: false
+  };
 
-function showQuestion(question, sessionUuid) {
-    const content = document.getElementById('diagnosis-content');
-    let html = `
-        <h3>${question.question_text_de}</h3>
-        <div class="question-options">
+  const elements = {
+    container: document.getElementById('diagnosis-container'),
+    left: document.getElementById('diagnosis-left'),
+    center: document.getElementById('diagnosis-center'),
+    right: document.getElementById('diagnosis-right'),
+    chatBtn: document.getElementById('chat-button')
+  };
+
+  if (!elements.container) return;
+
+  /**
+   * Lädt die Fragen aus der API und startet den Diagnose-Workflow.
+   */
+  async function loadQuestions() {
+    window.dispatchEvent(new CustomEvent('carfify:showProgress'));
+    try {
+      const res = await fetch('/api/diagnosis/questions.php');
+      state.questions = await res.json();
+      renderStep();
+    } catch (err) {
+      console.error('Fehler beim Laden der Fragen:', err);
+      elements.container.innerHTML = '<p class="error">Fehler beim Laden der Diagnose-Daten.</p>';
+    } finally {
+      window.dispatchEvent(new CustomEvent('carfify:hideProgress'));
+    }
+  }
+
+  /**
+   * Rendert die aktuelle Frage und passt das Layout dynamisch an.
+   */
+  function renderStep() {
+    const q = state.questions[state.currentStep];
+    if (!q) {
+      showResults();
+      return;
+    }
+
+    // Linke Spalte: Frage + Fortschritt
+    elements.left.innerHTML = `
+      <h2>Schritt ${state.currentStep + 1} / ${state.questions.length}</h2>
+      <p>${q.text}</p>
+      <progress max="${state.questions.length}" value="${state.currentStep}"></progress>
     `;
-    
-    if (question.options) {
-        const options = JSON.parse(question.options);
-        Object.entries(options).forEach(([key, value]) => {
-            html += `
-                <button class="option-button" onclick="loadDiagnosisStep(${question.step}, '${sessionUuid}', '${key}')">
-                    ${value}
-                </button>
-            `;
-        });
-    }
-    
-    html += '</div>';
-    content.innerHTML = html;
-}
 
-function showDiagnosisResult(diagnosis) {
-    const content = document.getElementById('diagnosis-content');
-    
-    let html = `
-        <h3>Diagnose-Ergebnis</h3>
-        <div class="diagnosis-result">
-            <h4>${diagnosis.problem}</h4>
-            <p>${diagnosis.description}</p>
-            <div class="severity ${diagnosis.severity}">
-                Schweregrad: ${diagnosis.severity}
-            </div>
-            <div class="estimated-cost">
-                Geschätzte Kosten: ${diagnosis.estimated_cost}
-            </div>
-            <h5>Nächste Schritte:</h5>
-            <ul>
-                ${diagnosis.next_steps.map(step => `<li>${step}</li>`).join('')}
-            </ul>
-            <button class="cta-button" onclick="findWorkshops()">Geeignete Werkstatt finden</button>
-        </div>
+    // Mittlere Spalte: Antwort-Optionen
+    elements.center.innerHTML = '';
+    q.options.forEach((opt) => {
+      const btn = document.createElement('button');
+      btn.className = 'btn ripple';
+      btn.textContent = opt.label;
+      btn.dataset.value = opt.value;
+      btn.addEventListener('click', () => selectAnswer(opt));
+      elements.center.appendChild(btn);
+    });
+
+    // Rechte Spalte: Hinweis / Anleitung
+    elements.right.innerHTML = q.hint
+      ? `<div class="hint"><strong>Hinweis:</strong> ${q.hint}</div>`
+      : '';
+
+    updateCertainty();
+  }
+
+  /**
+   * Wird aufgerufen, wenn der Nutzer eine Antwort auswählt.
+   * @param {Object} option - Gewählte Antwort-Option
+   */
+  function selectAnswer(option) {
+    state.answers.push(option);
+    state.currentStep++;
+    renderStep();
+  }
+
+  /**
+   * Berechnet die aktuelle Sicherheit basierend auf den Antworten.
+   * @returns {number} Sicherheit in Prozent (0-100)
+   */
+  function calculateCertainty() {
+    if (!state.answers.length) return 0;
+    const totalWeight = state.answers.reduce((sum, ans) => sum + (ans.weight || 1), 0);
+    const maxWeight = state.questions.length * 1; // Annahme: max Gewicht = 1 pro Frage
+    return Math.min(100, Math.round((totalWeight / maxWeight) * 100));
+  }
+
+  /**
+   * Aktualisiert die Sicherheitsanzeige.
+   */
+  function updateCertainty() {
+    state.certainty = calculateCertainty();
+    const bar = document.getElementById('certainty-bar');
+    if (bar) {
+      bar.style.width = state.certainty + '%';
+      bar.setAttribute('aria-valuenow', state.certainty);
+    }
+  }
+
+  /**
+   * Zeigt die Ergebnisübersicht nach Abschluss der Diagnose.
+   */
+  function showResults() {
+    elements.left.innerHTML = '<h2>Diagnose abgeschlossen</h2>';
+    elements.center.innerHTML = `
+      <p>Basierend auf Ihren Angaben haben wir eine Sicherheit von <strong>${state.certainty}%</strong> erreicht.</p>
+      <button class="btn primary ripple" id="restart-diagnosis">Neue Diagnose starten</button>
     `;
-    
-    content.innerHTML = html;
-}
+    elements.right.innerHTML = '';
+    document.getElementById('restart-diagnosis').addEventListener('click', resetDiagnosis);
+  }
 
-function findWorkshops() {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(position => {
-            loadWorkshops(position.coords.latitude, position.coords.longitude);
-        });
-    } else {
-        // Standard: Berlin
-        loadWorkshops(52.5200, 13.4050);
+  /**
+   * Setzt den Diagnose-Workflow zurück.
+   */
+  function resetDiagnosis() {
+    state.currentStep = 0;
+    state.answers = [];
+    state.certainty = 0;
+    renderStep();
+  }
+
+  /**
+   * Öffnet / schließt den permanenten Chat-Button.
+   */
+  function toggleChat() {
+    state.chatOpen = !state.chatOpen;
+    elements.chatBtn.setAttribute('aria-expanded', state.chatOpen);
+    const panel = document.getElementById('chat-panel');
+    if (panel) {
+      panel.hidden = !state.chatOpen;
     }
-}
+  }
 
-function loadWorkshops(lat, lng, page = 1) {
-    const content = document.getElementById('diagnosis-content');
-    
-    fetch(`api/workshops.php?lat=${lat}&lng=${lng}&page=${page}`)
-        .then(response => response.json())
-        .then(data => {
-            displayWorkshops(data.workshops, page);
-        });
-}
+  // Event-Listener für Chat-Button
+  if (elements.chatBtn) {
+    elements.chatBtn.addEventListener('click', toggleChat);
+  }
 
-function displayWorkshops(workshops, page) {
-    const content = document.getElementById('diagnosis-content');
-    
-    let html = '<h3>Empfohlene Werkstätten</h3><div class="workshops-list">';
-    
-    workshops.forEach(workshop => {
-        html += `
-            <div class="workshop-card">
-                <h4>${workshop.name}</h4>
-                <p>${workshop.address}</p>
-                <div class="workshop-rating">
-                    ${'★'.repeat(Math.floor(workshop.rating))}${'☆'.repeat(5-Math.floor(workshop.rating))}
-                    ${workshop.rating} (${workshop.review_count} Bewertungen)
-                </div>
-                <div class="workshop-specializations">
-                    ${workshop.specializations.map(spec => `<span class="specialization-tag">${spec}</span>`).join('')}
-                </div>
-                <button onclick="analyzeReviews(${workshop.id})">Bewertungen analysieren</button>
-            </div>
-        `;
-    });
-    
-    html += '</div>';
-    
-    if (workshops.length === 10) {
-        html += `<button onclick="loadMoreWorkshops(${page + 1})">Mehr laden</button>`;
-    }
-    
-    content.innerHTML = html;
-}
+  // Initial laden
+  loadQuestions();
 
-function analyzeReviews(workshopId) {
-    fetch('api/analyze_reviews.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `workshop_id=${workshopId}`
-    })
-    .then(response => response.json())
-    .then(data => {
-        alert(`KI-Analyse:\n${data.summary}\n\nPositiv: ${data.pros.join(', ')}\nNegativ: ${data.cons.join(', ')}`);
-    });
-}
-
-function loadMoreWorkshops(page) {
-    // Implementation für Infinite Scroll
-    const lastWorkshop = document.querySelector('.workshops-list').lastElementChild;
-    const lat = lastWorkshop.dataset.lat;
-    const lng = lastWorkshop.dataset.lng;
-    loadWorkshops(lat, lng, page);
+  // Öffentliche API des Moduls
+  return {
+    reset: resetDiagnosis,
+    getCertainty: () => state.certainty
+  };
 }

@@ -1,283 +1,242 @@
-/* Carfify Haupt-CSS */
+/* =========================================================
+   Carfify – Main Stylesheet
+   Mobile-First, Glassmorphism, Smooth Reveal, Ripple
+   ========================================================= */
 
+/* 1. CSS-Reset & Custom Properties */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
-  --primary-color: #1a1a2e;
-  --secondary-color: #16213e;
-  --accent-color: #0f3460;
-  --text-color: #e94560;
-  --background-color: #f5f5f5;
-  --card-background: #ffffff;
-  --border-radius: 8px;
-  --box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    --font-sans: 'Inter', system-ui, sans-serif;
+    --color-bg: #0f172a;
+    --color-surface: rgba(255, 255, 255, 0.08);
+    --color-surface-hover: rgba(255, 255, 255, 0.12);
+    --color-primary: #6366f1;
+    --color-secondary: #10b981;
+    --color-text: #f8fafc;
+    --color-text-muted: #94a3b8;
+    --border-radius: 1rem;
+    --shadow: 0 8px 32px rgba(0, 0, 0, 0.36);
+    --transition: 0.3s ease;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
+/* 2. Basis-Layout */
+html { scroll-behavior: smooth; }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-  background-color: var(--background-color);
-  color: var(--primary-color);
-  line-height: 1.6;
+    font-family: var(--font-sans);
+    background: var(--color-bg);
+    color: var(--color-text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+.container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
 }
 
-.main-header {
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  color: white;
-  text-align: center;
-  padding: 2rem 1rem;
+/* 3. Header */
+.header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(20px);
+    background: var(--color-surface);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.header__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 0;
+}
+.logo {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text);
+    text-decoration: none;
+}
+.nav__list {
+    display: none;
+    gap: 1.5rem;
+    list-style: none;
+}
+.nav__link {
+    color: var(--color-text-muted);
+    text-decoration: none;
+    transition: var(--transition);
+}
+.nav__link:hover { color: var(--color-text); }
+.hamburger {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+.hamburger__line {
+    width: 24px;
+    height: 2px;
+    background: var(--color-text);
+    transition: var(--transition);
 }
 
-.main-header h1 {
-  font-size: 2.5rem;
-  margin-bottom: 0.5rem;
+/* 4. Sections */
+.section {
+    padding: 4rem 0;
+}
+.hero {
+    text-align: center;
+    padding: 6rem 0;
+}
+.hero__title {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    margin-bottom: 1rem;
+}
+.hero__subtitle {
+    font-size: 1.125rem;
+    color: var(--color-text-muted);
+    margin-bottom: 2rem;
 }
 
-.main-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem 1rem;
+/* 5. Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.875rem 2rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+.btn--primary {
+    background: var(--color-primary);
+    color: #fff;
+}
+.btn--primary:hover { background: #4f46e5; }
+.btn--secondary {
+    background: var(--color-secondary);
+    color: #fff;
+}
+.btn--secondary:hover { background: #059669; }
+
+/* 6. Ripple Effekt */
+.ripple::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(circle, rgba(255,255,255,0.4) 0%, transparent 70%);
+    opacity: 0;
+    transform: scale(0);
+    transition: transform 0.6s ease, opacity 0.6s ease;
+}
+.ripple:active::before {
+    transform: scale(1.5);
+    opacity: 1;
+    transition: 0s;
 }
 
-.feature-section {
-  background: var(--card-background);
-  border-radius: var(--border-radius);
-  padding: 2rem;
-  margin-bottom: 2rem;
-  box-shadow: var(--box-shadow);
-  text-align: center;
+/* 7. Sell-Sektion */
+.sell__title {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    text-align: center;
+    margin-bottom: 1rem;
+}
+.sell__subtitle {
+    text-align: center;
+    color: var(--color-text-muted);
+    margin-bottom: 2.5rem;
+}
+.sell__cards {
+    display: grid;
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+}
+.card {
+    background: var(--color-surface);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    transition: var(--transition);
+}
+.card:hover {
+    background: var(--color-surface-hover);
+    transform: translateY(-4px);
+}
+.card h3 {
+    margin-bottom: 0.5rem;
+    font-size: 1.125rem;
 }
 
-.feature-section h2 {
-  color: var(--primary-color);
-  margin-bottom: 1rem;
+/* 8. Footer */
+.footer {
+    background: var(--color-surface);
+    padding: 2rem 0;
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+}
+.footer__inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+.footer__nav {
+    display: flex;
+    gap: 1rem;
+}
+.footer__nav a {
+    color: var(--color-text-muted);
+    text-decoration: none;
+    transition: var(--transition);
+}
+.footer__nav a:hover { color: var(--color-text); }
+
+/* 9. Smooth Reveal Animation */
+.reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+}
+.reveal.active {
+    opacity: 1;
+    transform: translateY(0);
+}
+.delay-1 { transition-delay: 0.1s; }
+.delay-2 { transition-delay: 0.2s; }
+.delay-3 { transition-delay: 0.3s; }
+.delay-4 { transition-delay: 0.4s; }
+
+/* 10. Skeleton Loader Styles */
+.skeleton {
+    background: linear-gradient(90deg, var(--color-surface) 25%, rgba(255,255,255,0.05) 50%, var(--color-surface) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: var(--border-radius);
+}
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
 }
 
-.cta-button {
-  background: var(--text-color);
-  color: white;
-  border: none;
-  padding: 1rem 2rem;
-  font-size: 1.1rem;
-  border-radius: var(--border-radius);
-  cursor: pointer;
-  transition: opacity 0.3s;
-}
-
-.cta-button:hover {
-  opacity: 0.9;
-}
-
-/* Modal Styles */
-.modal {
-  display: none;
-  position: fixed;
-  z-index: 1000;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0,0,0,0.5);
-}
-
-.modal-content {
-  background-color: var(--card-background);
-  margin: 5% auto;
-  padding: 2rem;
-  border-radius: var(--border-radius);
-  width: 90%;
-  max-width: 600px;
-  max-height: 80vh;
-  overflow-y: auto;
-}
-
-.close {
-  color: #aaa;
-  float: right;
-  font-size: 28px;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-.close:hover {
-  color: #000;
-}
-
-/* Chat Styles */
-.chat-button {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: var(--text-color);
-  color: white;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  box-shadow: var(--box-shadow);
-  z-index: 999;
-}
-
-.chat-window {
-  position: fixed;
-  bottom: 90px;
-  right: 20px;
-  width: 350px;
-  height: 500px;
-  background: var(--card-background);
-  border-radius: var(--border-radius);
-  box-shadow: var(--box-shadow);
-  display: flex;
-  flex-direction: column;
-  z-index: 999;
-}
-
-.chat-window.hidden {
-  display: none;
-}
-
-.chat-header {
-  background: var(--primary-color);
-  color: white;
-  padding: 1rem;
-  border-radius: var(--border-radius) var(--border-radius) 0 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.chat-messages {
-  flex: 1;
-  padding: 1rem;
-  overflow-y: auto;
-}
-
-.chat-message {
-  margin-bottom: 0.5rem;
-  padding: 0.5rem;
-  border-radius: var(--border-radius);
-}
-
-.chat-message.user {
-  background: var(--accent-color);
-  color: white;
-  margin-left: 20%;
-}
-
-.chat-message.assistant {
-  background: #f0f0f0;
-  margin-right: 20%;
-}
-
-.chat-input {
-  display: flex;
-  padding: 1rem;
-  border-top: 1px solid #eee;
-}
-
-.chat-input input {
-  flex: 1;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: var(--border-radius);
-  margin-right: 0.5rem;
-}
-
-.chat-input button {
-  background: var(--text-color);
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: var(--border-radius);
-  cursor: pointer;
-}
-
-/* Form Styles */
-.form-group {
-  margin-bottom: 1.5rem;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: bold;
-}
-
-.form-group input,
-.form-group select {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: var(--border-radius);
-  font-size: 1rem;
-}
-
-/* Workshop Cards */
-.workshop-card {
-  background: var(--card-background);
-  border: 1px solid #eee;
-  border-radius: var(--border-radius);
-  padding: 1.5rem;
-  margin-bottom: 1rem;
-}
-
-.workshop-rating {
-  color: #ffa500;
-  margin: 0.5rem 0;
-}
-
-.specialization-tag {
-  display: inline-block;
-  background: var(--accent-color);
-  color: white;
-  padding: 0.25rem 0.5rem;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  margin-right: 0.5rem;
-  margin-bottom: 0.25rem;
-}
-
-/* Photo Upload */
-.photo-upload-section {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin: 1rem 0;
-}
-
-.photo-upload {
-  border: 2px dashed #ddd;
-  border-radius: var(--border-radius);
-  padding: 1rem;
-  text-align: center;
-}
-
-.photo-upload:hover {
-  border-color: var(--text-color);
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .main-header h1 {
-    font-size: 2rem;
-  }
-  
-  .modal-content {
-    margin: 10% 1rem;
-    width: auto;
-  }
-  
-  .chat-window {
-    width: calc(100% - 40px);
-    right: 20px;
-  }
-  
-  .photo-upload-section {
-    grid-template-columns: 1fr;
-  }
+/* 11. Responsive Design */
+@media (min-width: 768px) {
+    .nav__list { display: flex; }
+    .hamburger { display: none; }
+    .sell__cards {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    .footer__inner {
+        flex-direction: row;
+        justify-content: space-between;
+    }
 }

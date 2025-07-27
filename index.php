@@ -1,76 +1,58 @@
+<?php
+/**
+ * Carfify – Hauptseite
+ * =====================
+ * Startpunkt der Anwendung. Bindet Header, Footer und alle Assets ein.
+ */
+?>
 <!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carfify - Die App für jeden Autobesitzer</title>
+    <title>Carfify – Diagnose & Verkauf</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Kostenlose Fahrzeug-Diagnose und sofortiger Ankauf – einfach, sicher und transparent.">
     <link rel="stylesheet" href="assets/css/main.css">
-    <link rel="manifest" href="pwa-manifest.json">
-    <meta name="theme-color" content="#1a1a2e">
 </head>
 <body>
-    <header class="main-header">
-        <h1>Carfify</h1>
-        <p>Die App, die jeder Autobesitzer braucht</p>
-    </header>
+    <?php include __DIR__ . '/templates/partials/header.php'; ?>
 
-    <main class="main-content">
-        <!-- Diagnose-Sektion -->
-        <section class="feature-section">
-            <h2>KFZ-Diagnose & Werkstattsuche</h2>
-            <p>Probleme mit Ihrem Auto? Lassen Sie uns helfen!</p>
-            <button class="cta-button" onclick="startDiagnosis()">Diagnose starten</button>
+    <main>
+        <!-- Hero / Diagnose starten -->
+        <section id="hero" class="section hero">
+            <div class="container">
+                <h1 class="hero__title reveal">Diagnose starten</h1>
+                <p class="hero__subtitle reveal delay-1">Finde in wenigen Schritten den Wert deines Autos heraus.</p>
+                <button class="btn btn--primary ripple" data-action="start-diagnose">Jetzt starten</button>
+            </div>
         </section>
 
-        <!-- Verkaufs-Sektion -->
-        <section class="feature-section">
-            <h2>Fahrzeug verkaufen</h2>
-            <p>Bestimmen Sie den Wert Ihres Autos und verkaufen Sie es zum besten Preis</p>
-            <button class="cta-button" onclick="startSelling()">Jetzt verkaufen</button>
+        <!-- Fahrzeug verkaufen -->
+        <section id="sell" class="section sell">
+            <div class="container">
+                <h2 class="sell__title reveal">Fahrzeug verkaufen</h2>
+                <p class="sell__subtitle reveal delay-1">Transparent, sicher und ohne lästige Verhandlungen.</p>
+                <div class="sell__cards">
+                    <article class="card reveal delay-2">
+                        <h3>1. Daten eingeben</h3>
+                        <p>Fahrzeugschein & Fotos hochladen – fertig.</p>
+                    </article>
+                    <article class="card reveal delay-3">
+                        <h3>2. Angebot erhalten</h3>
+                        <p>Binnen Minuten ein faires Marktpreis-Angebot.</p>
+                    </article>
+                    <article class="card reveal delay-4">
+                        <h3>3. Kostenlos abholen</h3>
+                        <p>Wir holen dein Auto deutschlandweit ab – ohne Kosten.</p>
+                    </article>
+                </div>
+                <button class="btn btn--secondary ripple" data-action="sell-vehicle">Jetzt verkaufen</button>
+            </div>
         </section>
-
-        <!-- Diagnose-Modal -->
-        <div id="diagnosis-modal" class="modal">
-            <div class="modal-content">
-                <span class="close" onclick="closeModal('diagnosis-modal')">&times;</span>
-                <div id="diagnosis-content"></div>
-            </div>
-        </div>
-
-        <!-- Verkaufs-Modal -->
-        <div id="selling-modal" class="modal">
-            <div class="modal-content">
-                <span class="close" onclick="closeModal('selling-modal')">&times;</span>
-                <div id="selling-content"></div>
-            </div>
-        </div>
     </main>
 
-    <!-- Permanenter Chat-Button -->
-    <button id="chat-button" class="chat-button" onclick="toggleChat()">
-        <span>💬</span>
-    </button>
+    <?php include __DIR__ . '/templates/partials/footer.php'; ?>
 
-    <div id="chat-window" class="chat-window hidden">
-        <div class="chat-header">
-            <h3>Meister Müller</h3>
-            <button onclick="toggleChat()">&times;</button>
-        </div>
-        <div id="chat-messages" class="chat-messages"></div>
-        <div class="chat-input">
-            <input type="text" id="chat-input-field" placeholder="Ihre Frage...">
-            <button onclick="sendChatMessage()">Senden</button>
-        </div>
-    </div>
-
-    <script src="assets/js/main.js"></script>
-    <script src="assets/js/diagnosis.js"></script>
-    <script src="assets/js/selling.js"></script>
-    <script>
-        // PWA Registration
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('service-worker.js');
-        }
-    </script>
+    <script src="assets/js/app.js" defer></script>
 </body>
 </html>
