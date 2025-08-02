@@ -1,138 +1,120 @@
 <?php
-/**
- * Carfify – Hauptseite
- * Vollständige Implementierung aller 8 Hauptmenü-Features
- */
+// Carfify - Hauptmenü mit 8 Features
+// Phase 1.1 - 2 Features aktiv, 6 Coming Soon
 ?>
 <!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Carfify – Alles für Ihr Auto</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Carfify - Ihre komplette Auto-Plattform: Diagnose, Verkauf, Wartung und mehr">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carfify - Deine Auto-App</title>
     <link rel="stylesheet" href="assets/css/main.css">
-    <link rel="manifest" href="pwa-manifest.json">
-    <meta name="theme-color" content="#4fc2ee">
-    <link rel="icon" type="image/png" href="assets/images/favicon.png">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
-    <?php include __DIR__ . '/templates/partials/header.php'; ?>
+    <!-- Progress Indicator -->
+    <div class="progress-indicator" id="progressIndicator">
+        <div class="progress-bar"></div>
+    </div>
 
-    <main>
-        <!-- Progress Indicator -->
-        <div id="global-progress" class="progress-bar"></div>
-
-        <!-- Hero Section -->
-        <section id="hero" class="hero">
-            <div class="container">
-                <h1 class="hero__title reveal">Willkommen bei Carfify</h1>
-                <p class="hero__subtitle reveal delay-1">Ihre komplette Auto-Plattform - alles an einem Ort</p>
-            </div>
-        </section>
-
-        <!-- Hauptmenü Features -->
-        <section id="features" class="features">
-            <div class="container">
-                <div class="features-grid">
-                    <!-- Feature 1: Diagnose & Reparatur -->
-                    <div class="feature-card ripple" data-feature="diagnose">
-                        <div class="feature-icon">🔧</div>
-                        <h3>Diagnose & Reparatur</h3>
-                        <p>KI-gestützte Fahrzeugdiagnose mit Soforthilfe</p>
-                        <button class="btn btn--primary" onclick="startDiagnose()">Jetzt starten</button>
-                    </div>
-
-                    <!-- Feature 2: Fahrzeug verkaufen -->
-                    <div class="feature-card ripple" data-feature="sell">
-                        <div class="feature-icon">🚗</div>
-                        <h3>Fahrzeug verkaufen</h3>
-                        <p>Kostenlose Preisbewertung und schneller Verkauf</p>
-                        <button class="btn btn--primary" onclick="startSelling()">Preis ermitteln</button>
-                    </div>
-
-                    <!-- Feature 3: Wartungsplaner -->
-                    <div class="feature-card ripple" data-feature="maintenance">
-                        <div class="feature-icon">📅</div>
-                        <h3>Wartungsplaner</h3>
-                        <p>Never miss a service appointment</p>
-                        <span class="coming-soon">Coming Soon</span>
-                    </div>
-
-                    <!-- Feature 4: Teilemarkt -->
-                    <div class="feature-card ripple" data-feature="parts">
-                        <div class="feature-icon">🛒</div>
-                        <h3>Teilemarkt</h3>
-                        <p>Neue und gebrauchte Autoteile finden</p>
-                        <span class="coming-soon">Coming Soon</span>
-                    </div>
-
-                    <!-- Feature 5: Werkstatt-Bewertungen -->
-                    <div class="feature-card ripple" data-feature="reviews">
-                        <div class="feature-icon">⭐</div>
-                        <h3>Werkstatt-Bewertungen</h3>
-                        <p>Echte Bewertungen von echten Kunden</p>
-                        <span class="coming-soon">Coming Soon</span>
-                    </div>
-
-                    <!-- Feature 6: Community-Forum -->
-                    <div class="feature-card ripple" data-feature="forum">
-                        <div class="feature-icon">💬</div>
-                        <h3>Community-Forum</h3>
-                        <p>Hilfe und Austausch mit anderen Autofahrern</p>
-                        <span class="coming-soon">Coming Soon</span>
-                    </div>
-
-                    <!-- Feature 7: Versicherungsvergleich -->
-                    <div class="feature-card ripple" data-feature="insurance">
-                        <div class="feature-icon">🛡️</div>
-                        <h3>Versicherungsvergleich</h3>
-                        <p>Finden Sie die beste Kfz-Versicherung</p>
-                        <span class="coming-soon">Coming Soon</span>
-                    </div>
-
-                    <!-- Feature 8: TÜV/HU Erinnerung -->
-                    <div class="feature-card ripple" data-feature="inspection">
-                        <div class="feature-icon">🔍</div>
-                        <h3>TÜV/HU Erinnerung</h3>
-                        <p>Nie wieder vergessene Prüfungstermine</p>
-                        <span class="coming-soon">Coming Soon</span>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Diagnose Modal -->
-        <div id="diagnose-modal" class="modal">
-            <div class="modal-content glass">
-                <span class="close">&times;</span>
-                <h2>Fahrzeugdiagnose starten</h2>
-                <div id="diagnose-content">
-                    <!-- Dynamisch geladen via JavaScript -->
-                </div>
-            </div>
+    <!-- Header -->
+    <header class="glass-header">
+        <div class="container">
+            <h1><i class="fas fa-car"></i> Carfify</h1>
+            <p>Deine intelligente Auto-App</p>
         </div>
+    </header>
 
-        <!-- Verkaufen Modal -->
-        <div id="sell-modal" class="modal">
-            <div class="modal-content glass">
-                <span class="close">&times;</span>
-                <h2>Fahrzeug verkaufen</h2>
-                <div id="sell-content">
-                    <!-- Dynamisch geladen via JavaScript -->
+    <!-- Main Content -->
+    <main class="container">
+        <div class="features-grid">
+            <!-- Feature 1: Diagnose & Reparatur -->
+            <a href="diagnose.php" class="feature-card active ripple-effect">
+                <div class="card-icon">
+                    <i class="fas fa-tools"></i>
                 </div>
+                <h3>🔧 Diagnose & Reparatur</h3>
+                <p>Finde Fehler und repariere dein Auto mit KI-Unterstützung</p>
+                <span class="status-badge active">Verfügbar</span>
+            </a>
+
+            <!-- Feature 2: Fahrzeug verkaufen -->
+            <a href="verkaufen.php" class="feature-card active ripple-effect">
+                <div class="card-icon">
+                    <i class="fas fa-handshake"></i>
+                </div>
+                <h3>🚗 Fahrzeug verkaufen</h3>
+                <p>KI-basierte Preisschätzung und Verkaufsunterstützung</p>
+                <span class="status-badge active">Verfügbar</span>
+            </a>
+
+            <!-- Feature 3: Wartungsplaner -->
+            <div class="feature-card coming-soon">
+                <div class="card-icon">
+                    <i class="fas fa-calendar-alt"></i>
+                </div>
+                <h3>📅 Wartungsplaner</h3>
+                <p>Automatische Erinnerungen für anstehende Wartungen</p>
+                <span class="status-badge coming-soon">Coming Soon</span>
+            </div>
+
+            <!-- Feature 4: Teilemarkt -->
+            <div class="feature-card coming-soon">
+                <div class="card-icon">
+                    <i class="fas fa-shopping-cart"></i>
+                </div>
+                <h3>🛒 Teilemarkt</h3>
+                <p>Finde günstige Ersatzteile und Zubehör</p>
+                <span class="status-badge coming-soon">Coming Soon</span>
+            </div>
+
+            <!-- Feature 5: Werkstatt-Bewertungen -->
+            <div class="feature-card coming-soon">
+                <div class="card-icon">
+                    <i class="fas fa-star"></i>
+                </div>
+                <h3>⭐ Werkstatt-Bewertungen</h3>
+                <p>Finde die beste Werkstatt in deiner Nähe</p>
+                <span class="status-badge coming-soon">Coming Soon</span>
+            </div>
+
+            <!-- Feature 6: Community-Forum -->
+            <div class="feature-card coming-soon">
+                <div class="card-icon">
+                    <i class="fas fa-comments"></i>
+                </div>
+                <h3>💬 Community-Forum</h3>
+                <p>Tausche dich mit anderen Autofahrern aus</p>
+                <span class="status-badge coming-soon">Coming Soon</span>
+            </div>
+
+            <!-- Feature 7: Versicherungsvergleich -->
+            <div class="feature-card coming-soon">
+                <div class="card-icon">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <h3>🛡️ Versicherungsvergleich</h3>
+                <p>Spare Geld mit dem besten Versicherungsangebot</p>
+                <span class="status-badge coming-soon">Coming Soon</span>
+            </div>
+
+            <!-- Feature 8: TÜV/HU Erinnerung -->
+            <div class="feature-card coming-soon">
+                <div class="card-icon">
+                    <i class="fas fa-search"></i>
+                </div>
+                <h3>🔍 TÜV/HU Erinnerung</h3>
+                <p>Verpasse nie wieder einen Termin</p>
+                <span class="status-badge coming-soon">Coming Soon</span>
             </div>
         </div>
     </main>
 
-    <?php include __DIR__ . '/templates/partials/footer.php'; ?>
+    <!-- Footer -->
+    <footer class="glass-footer">
+        <p>&copy; 2024 Carfify - Made with ❤️ for car enthusiasts</p>
+    </footer>
 
-    <script src="assets/js/app.js" type="module"></script>
-    <script>
-        // Service Worker Registration
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/service-worker.js');
-        }
-    </script>
+    <script src="assets/js/app.js"></script>
 </body>
 </html>

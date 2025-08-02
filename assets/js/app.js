@@ -1,311 +1,199 @@
-/**
- * Carfify – Complete App Module
- * Main application controller with PWA support
- */
-
-import { initDiagnosis } from './diagnosis.js';
-import { initSelling } from './selling.js';
-import { initAnimations } from './animations.js';
+// Carfify - Core JavaScript
+// Phase 1.1 - Main Menu Interactions
 
 class CarfifyApp {
     constructor() {
-        this.currentModal = null;
-        this.features = {
-            diagnose: new initDiagnosis(),
-            sell: new initSelling()
-        };
         this.init();
     }
 
     init() {
-        this.setupEventListeners();
-        this.initProgressBar();
-        this.initRippleEffects();
-        this.initIntersectionObserver();
-        this.initModals();
-        this.handleLocationPermission();
-        initAnimations();
+        this.setupProgressIndicator();
+        this.setupRippleEffects();
+        this.setupFeatureCards();
+        this.setupSmoothScroll();
     }
 
-    setupEventListeners() {
-        // Feature card clicks
-        document.querySelectorAll('.feature-card').forEach(card => {
-            card.addEventListener('click', (e) => {
-                if (e.target.tagName !== 'BUTTON') {
-                    const feature = card.dataset.feature;
-                    this.handleFeatureClick(feature);
-                }
-            });
-        });
-
-        // Modal close handlers
-        document.querySelectorAll('.close').forEach(closeBtn => {
-            closeBtn.addEventListener('click', () => this.closeModal());
-        });
-
-        // Click outside modal to close
-        window.addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal')) {
-                this.closeModal();
-            }
-        });
-
-        // ESC key to close modal
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.currentModal) {
-                this.closeModal();
-            }
-        });
-    }
-
-    handleFeatureClick(feature) {
-        switch(feature) {
-            case 'diagnose':
-                this.openModal('diagnose-modal');
-                this.features.diagnose.start();
-                break;
-            case 'sell':
-                this.openModal('sell-modal');
-                this.features.sell.start();
-                break;
-            case 'maintenance':
-            case 'parts':
-            case 'reviews':
-            case 'forum':
-            case 'insurance':
-            case 'inspection':
-                this.showComingSoon(feature);
-                break;
-        }
-    }
-
-    openModal(modalId) {
-        this.currentModal = document.getElementById(modalId);
-        if (this.currentModal) {
-            this.currentModal.style.display = 'block';
-            document.body.style.overflow = 'hidden';
-            this.showProgress();
-        }
-    }
-
-    closeModal() {
-        if (this.currentModal) {
-            this.currentModal.style.display = 'none';
-            document.body.style.overflow = '';
-            this.currentModal = null;
-            this.hideProgress();
-        }
-    }
-
-    showComingSoon(feature) {
-        const featureNames = {
-            maintenance: 'Wartungsplaner',
-            parts: 'Teilemarkt',
-            reviews: 'Werkstatt-Bewertungen',
-            forum: 'Community-Forum',
-            insurance: 'Versicherungsvergleich',
-            inspection: 'TÜV/HU Erinnerung'
-        };
+    // Progress Indicator Animation
+    setupProgressIndicator() {
+        const progressBar = document.querySelector('.progress-bar');
         
-        alert(`${featureNames[feature]} wird bald verfügbar sein!`);
-    }
+        if (progressBar) {
+            // Animate progress on page load
+            setTimeout(() => {
+                progressBar.style.width = '100%';
+            }, 100);
 
-    initProgressBar() {
-        const progressBar = document.getElementById('global-progress');
-        if (!progressBar) return;
-
-        // Listen for custom events
-        document.addEventListener('carfify:showProgress', () => {
-            progressBar.style.transform = 'scaleX(1)';
-        });
-
-        document.addEventListener('carfify:hideProgress', () => {
-            progressBar.style.transform = 'scaleX(0)';
-        });
-
-        document.addEventListener('carfify:updateProgress', (e) => {
-            const percent = e.detail.percent || 0;
-            progressBar.style.transform = `scaleX(${percent / 100})`;
-        });
-    }
-
-    showProgress() {
-        document.dispatchEvent(new CustomEvent('carfify:showProgress'));
-    }
-
-    hideProgress() {
-        document.dispatchEvent(new CustomEvent('carfify:hideProgress'));
-    }
-
-    initRippleEffects() {
-        document.querySelectorAll('.ripple').forEach(button => {
-            button.addEventListener('click', this.createRipple);
-        });
-    }
-
-    createRipple(event) {
-        const button = event.currentTarget;
-        const circle = document.createElement('span');
-        const diameter = Math.max(button.clientWidth, button.clientHeight);
-        const radius = diameter / 2;
-
-        circle.style.width = circle.style.height = `${diameter}px`;
-        circle.style.left = `${event.clientX - button.offsetLeft - radius}px`;
-        circle.style.top = `${event.clientY - button.offsetTop - radius}px`;
-        circle.classList.add('ripple-effect');
-
-        const ripple = button.getElementsByClassName('ripple-effect')[0];
-        if (ripple) {
-            ripple.remove();
-        }
-
-        button.appendChild(circle);
-    }
-
-    initIntersectionObserver() {
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('active');
-                }
+            // Reset on navigation
+            window.addEventListener('beforeunload', () => {
+                progressBar.style.width = '0%';
             });
-        }, { threshold: 0.1 });
+        }
+    }
 
-        document.querySelectorAll('.reveal').forEach(el => {
-            observer.observe(el);
+    // Ripple Effect for Cards
+    setupRippleEffects() {
+        const cards = document.querySelectorAll('.feature-card.active');
+        
+        cards.forEach(card => {
+            card.addEventListener('click', (e) => {
+                const ripple = document.createElement('span');
+                const rect = card.getBoundingClientRect();
+                const size = Math.max(rect.width, rect.height);
+                const x = e.clientX - rect.left - size / 2;
+                const y = e.clientY - rect.top - size / 2;
+
+                ripple.style.cssText = `
+                    position: absolute;
+                    width: ${size}px;
+                    height: ${size}px;
+                    left: ${x}px;
+                    top: ${y}px;
+                    background: rgba(255, 255, 255, 0.3);
+                    border-radius: 50%;
+                    transform: scale(0);
+                    animation: ripple 0.6s linear;
+                    pointer-events: none;
+                `;
+
+                card.style.position = 'relative';
+                card.appendChild(ripple);
+
+                setTimeout(() => {
+                    ripple.remove();
+                }, 600);
+            });
         });
     }
 
-    initModals() {
-        // Add modal styles if not present
+    // Feature Card Interactions
+    setupFeatureCards() {
+        const comingSoonCards = document.querySelectorAll('.feature-card.coming-soon');
+        
+        comingSoonCards.forEach(card => {
+            card.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.showComingSoonNotification();
+            });
+        });
+    }
+
+    // Coming Soon Notification
+    showComingSoonNotification() {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = 'coming-soon-notification';
+        notification.innerHTML = `
+            <div class="notification-content">
+                <i class="fas fa-clock"></i>
+                <h3>Coming Soon!</h3>
+                <p>Dieses Feature ist in Entwicklung und bald verfügbar.</p>
+            </div>
+        `;
+
+        // Add styles
+        notification.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 2rem;
+            text-align: center;
+            z-index: 1001;
+            animation: fadeInScale 0.3s ease;
+        `;
+
+        const content = notification.querySelector('.notification-content');
+        content.style.cssText = `
+            color: white;
+        `;
+
+        const icon = notification.querySelector('i');
+        icon.style.cssText = `
+            font-size: 3rem;
+            color: #4fc2ee;
+            margin-bottom: 1rem;
+        `;
+
+        // Add to DOM
+        document.body.appendChild(notification);
+
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.style.animation = 'fadeOutScale 0.3s ease';
+            setTimeout(() => {
+                notification.remove();
+            }, 300);
+        }, 3000);
+    }
+
+    // Smooth Scroll
+    setupSmoothScroll() {
+        // Add CSS for animations
         const style = document.createElement('style');
         style.textContent = `
-            .ripple-effect {
-                position: absolute;
-                border-radius: 50%;
-                background: rgba(255, 255, 255, 0.3);
-                transform: scale(0);
-                animation: ripple-animation 0.6s linear;
-                pointer-events: none;
-            }
-            @keyframes ripple-animation {
+            @keyframes ripple {
                 to {
                     transform: scale(4);
                     opacity: 0;
+                }
+            }
+
+            @keyframes fadeInScale {
+                from {
+                    opacity: 0;
+                    transform: translate(-50%, -50%) scale(0.8);
+                }
+                to {
+                    opacity: 1;
+                    transform: translate(-50%, -50%) scale(1);
+                }
+            }
+
+            @keyframes fadeOutScale {
+                from {
+                    opacity: 1;
+                    transform: translate(-50%, -50%) scale(1);
+                }
+                to {
+                    opacity: 0;
+                    transform: translate(-50%, -50%) scale(0.8);
                 }
             }
         `;
         document.head.appendChild(style);
     }
 
-    async handleLocationPermission() {
-        if ('geolocation' in navigator) {
-            const permission = await navigator.permissions.query({ name: 'geolocation' });
-            
-            if (permission.state === 'granted') {
-                this.getUserLocation();
-            } else if (permission.state === 'prompt') {
-                // Show location explanation
-                this.showLocationExplanation();
-            }
-        }
+    // Utility: Add loading state
+    addLoadingState(element) {
+        element.classList.add('loading');
+        element.style.pointerEvents = 'none';
     }
 
-    showLocationExplanation() {
-        // Create location permission modal
-        const modal = document.createElement('div');
-        modal.innerHTML = `
-            <div class="location-modal">
-                <h3>Standortzugriff</h3>
-                <p>Wir benötigen Ihren Standort für:</p>
-                <ul>
-                    <li>Werkstatt-Empfehlungen in Ihrer Nähe</li>
-                    <li>Regionale Preisvergleiche</li>
-                    <li>Optimierte Services</li>
-                </ul>
-                <div class="modal-actions">
-                    <button class="btn btn--primary" onclick="app.grantLocation()">Erlauben</button>
-                    <button class="btn btn--secondary" onclick="app.denyLocation()">Später</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-    }
-
-    async grantLocation() {
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                localStorage.setItem('userLocation', JSON.stringify({
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude
-                }));
-                document.querySelector('.location-modal')?.remove();
-            },
-            (error) => {
-                console.error('Location error:', error);
-                document.querySelector('.location-modal')?.remove();
-            }
-        );
-    }
-
-    denyLocation() {
-        document.querySelector('.location-modal')?.remove();
-    }
-
-    getUserLocation() {
-        navigator.geolocation.getCurrentPosition((position) => {
-            localStorage.setItem('userLocation', JSON.stringify({
-                lat: position.coords.latitude,
-                lng: position.coords.longitude
-            }));
-        });
+    // Utility: Remove loading state
+    removeLoadingState(element) {
+        element.classList.remove('loading');
+        element.style.pointerEvents = 'auto';
     }
 }
 
-// Global functions for onclick handlers
-window.startDiagnose = () => {
-    window.app.handleFeatureClick('diagnose');
-};
-
-window.startSelling = () => {
-    window.app.handleFeatureClick('sell');
-};
-
-// Initialize app when DOM is ready
+// Initialize App
 document.addEventListener('DOMContentLoaded', () => {
-    window.app = new CarfifyApp();
+    new CarfifyApp();
 });
 
-// PWA Install Prompt
-let deferredPrompt;
-
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    
-    // Show install button
-    const installBtn = document.createElement('button');
-    installBtn.textContent = 'App installieren';
-    installBtn.className = 'install-btn';
-    installBtn.onclick = async () => {
-        if (deferredPrompt) {
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            console.log(`User response: ${outcome}`);
-            deferredPrompt = null;
-            installBtn.remove();
-        }
-    };
-    document.body.appendChild(installBtn);
-});
-
-// Handle online/offline status
-window.addEventListener('online', () => {
-    document.body.classList.remove('offline');
-});
-
-window.addEventListener('offline', () => {
-    document.body.classList.add('offline');
-});
-
-export default CarfifyApp;
+// Service Worker Registration (for PWA)
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+                console.log('SW registered: ', registration);
+            })
+            .catch(registrationError => {
+                console.log('SW registration failed: ', registrationError);
+            });
+    });
+}

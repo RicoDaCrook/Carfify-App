@@ -1,11 +1,10 @@
-# Carfify Apache Configuration
-# Security, Performance, and PWA Support
+# Carfify - Apache Configuration
+# Phase 1.2 - URL Rewriting & Security
 
 # Enable rewrite engine
 RewriteEngine On
-RewriteBase /
 
-# Security Headers
+# Security headers
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options nosniff
     Header always set X-Frame-Options DENY
@@ -15,7 +14,27 @@ RewriteBase /
     Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
 </IfModule>
 
-# Compression
+# Prevent access to sensitive files
+<Files ~ "^\.">
+    Require all denied
+</Files>
+
+<Files "composer.json">
+    Require all denied
+</Files>
+
+<Files "composer.lock">
+    Require all denied
+</Files>
+
+<Files ".env">
+    Require all denied
+</Files>
+
+# Prevent directory listing
+Options -Indexes
+
+# Compress text files
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/plain
     AddOutputFilterByType DEFLATE text/html
@@ -26,65 +45,47 @@ RewriteBase /
     AddOutputFilterByType DEFLATE application/rss+xml
     AddOutputFilterByType DEFLATE application/javascript
     AddOutputFilterByType DEFLATE application/x-javascript
-    AddOutputFilterByType DEFLATE application/json
 </IfModule>
 
-# Browser Caching
+# Cache static files
 <IfModule mod_expires.c>
-    ExpiresActive On
+    ExpiresActive on
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
     ExpiresByType image/jpg "access plus 1 year"
     ExpiresByType image/jpeg "access plus 1 year"
     ExpiresByType image/gif "access plus 1 year"
     ExpiresByType image/png "access plus 1 year"
     ExpiresByType text/css "access plus 1 month"
     ExpiresByType application/pdf "access plus 1 month"
-    ExpiresByType text/javascript "access plus 1 month"
-    ExpiresByType application/javascript "access plus 1 month"
-    ExpiresByType application/x-javascript "access plus 1 month"
-    ExpiresByType application/json "access plus 1 hour"
+    ExpiresByType text/x-javascript "access plus 1 month"
+    ExpiresByType application/x-shockwave-flash "access plus 1 month"
+    ExpiresByType image/x-icon "access plus 1 year"
+    ExpiresDefault "access plus 1 week"
 </IfModule>
 
-# API Routing
-RewriteRule ^api/diagnose/?$ api/diagnose.php [L,QSA]
-RewriteRule ^api/sell/?$ api/estimate_price.php [L,QSA]
-RewriteRule ^api/vehicles/?$ api/vehicles.php [L,QSA]
-RewriteRule ^api/workshops/?$ api/workshops.php [L,QSA]
-RewriteRule ^api/reviews/?$ api/analyze_reviews.php [L,QSA]
-RewriteRule ^api/contract/?$ api/generate_contract.php [L,QSA]
-RewriteRule ^api/session/?$ api/session.php [L,QSA]
-
-# PWA Files
-RewriteRule ^manifest\.json$ pwa-manifest.json [L]
-RewriteRule ^service-worker\.js$ service-worker.js [L]
-RewriteRule ^favicon\.ico$ assets/images/favicon.ico [L]
-
-# SPA Routing - Fallback to index.html for client-side routing
+# API routing
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{REQUEST_URI} !^/api/
-RewriteCond %{REQUEST_URI} !\.(css|js|png|jpg|jpeg|gif|ico|svg)$
-RewriteRule ^ index.php [L]
+RewriteRule ^api/(.*)$ api/base.php [QSA,L]
 
-# Security - Block access to sensitive files
-<Files ~ "^\.">
-    Require all denied
-</Files>
+# Frontend routing (SPA)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
 
-<Files "config.php">
-    Require all denied
-</Files>
+# Error pages
+ErrorDocument 404 /404.php
+ErrorDocument 500 /500.php
 
-<Files "database.php">
-    Require all denied
-</Files>
+# PHP settings
+php_flag display_errors off
+php_flag log_errors on
+php_value error_log logs/php_errors.log
 
-<Files "setup.sql">
-    Require all denied
-</Files>
-
-# Prevent directory listing
-Options -Indexes
-
-# Custom error pages
-ErrorDocument 404 /404.html
-ErrorDocument 500 /500.html
+# Upload limits
+php_value upload_max_filesize 5M
+php_value post_max_size 5M
+php_value max_execution_time 300
+php_value max_input_time 300
+php_value memory_limit 128M
