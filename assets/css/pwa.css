@@ -1,0 +1,123 @@
+/* PWA-spezifische Styles für Carfify */
+
+/* Offline-Status Styles */
+body.offline {
+    filter: grayscale(20%);
+}
+
+body.offline::before {
+    content: "Offline-Modus";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(90deg, #ff9500, #ff6b00);
+    color: white;
+    text-align: center;
+    padding: 0.3rem;
+    font-size: 0.8rem;
+    z-index: 1000;
+    animation: pulse 2s infinite;
+}
+
+/* PWA Install Button Styles */
+.pwa-install-btn {
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.pwa-install-btn:hover {
+    transform: translateY(-2px) scale(1.05);
+}
+
+/* Responsive Anpassungen für PWA */
+@media (display-mode: standalone) {
+    /* Styles für installierte PWA */
+    .header {
+        padding-top: env(safe-area-inset-top);
+    }
+    
+    .main-container {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+    
+    /* Hide install button wenn bereits installiert */
+    .pwa-install-btn {
+        display: none;
+    }
+}
+
+/* PWA Splash Screen Simulation */
+@media (display-mode: standalone) {
+    body::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #4fc2ee, #414959);
+        z-index: 9999;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+    }
+    
+    body.loading::before {
+        opacity: 1;
+        pointer-events: all;
+    }
+}
+
+/* Update Notification Styles */
+#update-notification {
+    animation: slideDown 0.5s ease;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateX(-50%) translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Touch-friendly Buttons für Mobile */
+@media (max-width: 768px) {
+    .btn, .pwa-install-btn {
+        min-height: 44px; /* Apple's minimum touch target */
+        min-width: 44px;
+    }
+}
+
+/* iOS-spezifische Anpassungen */
+@supports (-webkit-appearance: none) {
+    .pwa-install-btn {
+        -webkit-appearance: none;
+        -webkit-user-select: none;
+    }
+}
+
+/* Android-spezifische Anpassungen */
+@media (max-width: 768px) and (orientation: portrait) {
+    .features-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+}
+
+/* Accessibility für PWA */
+@media (prefers-reduced-motion: reduce) {
+    .pwa-install-btn {
+        animation: none;
+    }
+    
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}

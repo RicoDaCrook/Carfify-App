@@ -1,51 +1,32 @@
 {
-  "name": "Carfify - Ihre Auto-Plattform",
+  "name": "Carfify - Dein intelligenter Auto-Partner",
   "short_name": "Carfify",
-  "description": "Komplette Auto-Plattform: Diagnose, Verkauf, Wartung und mehr",
+  "description": "KI-basierte Fahrzeugdiagnose und Verkaufsberatung",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a1a1a",
+  "orientation": "portrait",
   "theme_color": "#4fc2ee",
-  "orientation": "portrait-primary",
+  "background_color": "#414959",
   "icons": [
     {
-      "src": "assets/images/icon-192.png",
+      "src": "https://via.placeholder.com/72x72/4fc2ee/ffffff?text=C",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "https://via.placeholder.com/192x192/4fc2ee/ffffff?text=C",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "assets/images/icon-512.png",
+      "src": "https://via.placeholder.com/512x512/4fc2ee/ffffff?text=C",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     }
   ],
-  "categories": ["auto", "utilities", "productivity"],
-  "lang": "de-DE",
+  "categories": ["automotive", "tools", "utilities"],
+  "lang": "de",
   "scope": "/",
-  "screenshots": [
-    {
-      "src": "assets/images/screenshot1.png",
-      "sizes": "1080x1920",
-      "type": "image/png",
-      "form_factor": "narrow"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "Diagnose starten",
-      "short_name": "Diagnose",
-      "description": "Sofortige Fahrzeugdiagnose",
-      "url": "/?feature=diagnose",
-      "icons": [{ "src": "assets/images/diagnose-icon.png", "sizes": "96x96" }]
-    },
-    {
-      "name": "Fahrzeug verkaufen",
-      "short_name": "Verkaufen",
-      "description": "Fahrzeugpreis ermitteln",
-      "url": "/?feature=sell",
-      "icons": [{ "src": "assets/images/sell-icon.png", "sizes": "96x96" }]
-    }
-  ]
+  "prefer_related_applications": false
 }

@@ -8,7 +8,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Carfify - Deine Auto-App</title>
+    <link rel="manifest" href="/pwa-manifest.json">
     <link rel="stylesheet" href="assets/css/main.css">
+    <link rel="stylesheet" href="assets/css/pwa.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
@@ -116,5 +118,6 @@
     </footer>
 
     <script src="assets/js/app.js"></script>
+    <script src="/assets/js/pwa.js"></script>
 </body>
 </html>
