@@ -1,109 +1,169 @@
 <?php
-/**
- * diagnose.php
- * Endpunkt zur Durchführung einer KI-Diagnose.
- * Erwartet JSON-Body mit vehicle_id, problem_description und optionalen user_answers.
- * Gibt Diagnoseergebnis (JSON) zurück.
- */
+require_once 'base.php';
+require_once '../classes/MeisterMueller.php';
 
-header('Content-Type: application/json; charset=utf-8');
+header('Content-Type: application/json');
 
-// CORS erlauben
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization");
-
-// OPTIONS-Request sofort beantworten
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
+class DiagnoseAPI extends BaseAPI {
+    private $meister;
+    
+    public function __construct() {
+        parent::__construct();
+        $this->meister = new MeisterMueller();
+    }
+    
+    public function handleRequest() {
+        $method = $_SERVER['REQUEST_METHOD'];
+        $action = $_GET['action'] ?? '';
+        
+        switch($method) {
+            case 'GET':
+                switch($action) {
+                    case 'quick-questions':
+                        $this->getQuickQuestions();
+                        break;
+                    case 'checklist':
+                        $this->getChecklist($_GET['symptom'] ?? '');
+                        break;
+                    case 'safety-score':
+                        $this->calculateSafetyScore($_GET['answers'] ?? []);
+                        break;
+                    default:
+                        $this->error('Ungültige Aktion');
+                }
+                break;
+                
+            case 'POST':
+                switch($action) {
+                    case 'chat':
+                        $this->handleChat($_POST['message'] ?? '', $_POST['context'] ?? []);
+                        break;
+                    case 'analyze-symptom':
+                        $this->analyzeSymptom($_POST);
+                        break;
+                    default:
+                        $this->error('Ungültige Aktion');
+                }
+                break;
+        }
+    }
+    
+    private function getQuickQuestions() {
+        $questions = [
+            [
+                'id' => 'engine_noise',
+                'question' => 'Hören Sie ungewöhnliche Geräusche aus dem Motor?',
+                'description' => 'Klingt wie ein ratterndes Geräusch?'
+            ],
+            [
+                'id' => 'brake_squeal',
+                'question' => 'Quietschen Ihre Bremsen beim Bremsen?',
+                'description' => 'Hören Sie ein piepsendes Geräusch?'
+            ],
+            [
+                'id' => 'oil_light',
+                'question' => 'Leuchtet die Öl-Kontrollleuchte?',
+                'description' => 'Rotes Öl-Kännchen im Display?'
+            ],
+            [
+                'id' => 'coolant_temp',
+                'question' => 'Steigt die Temperatur über die Mitte?',
+                'description' => 'Zeigt der Temperaturmesser zu heiß an?'
+            ],
+            [
+                'id' => 'steering_vibration',
+                'question' => 'Vibriert das Lenkrad beim Fahren?',
+                'description' => 'Spüren Sie ein Kribbeln in den Händen?'
+            ]
+        ];
+        
+        $this->success(['questions' => $questions]);
+    }
+    
+    private function getChecklist($symptom) {
+        $checklists = [
+            'engine_noise' => [
+                [
+                    'id' => 'check_oil_level',
+                    'title' => 'Ölstand prüfen',
+                    'instruction' => 'Ziehen Sie den gelben Öl-Messstab heraus (links am Motor), wischen Sie ihn ab, stecken Sie ihn wieder rein und ziehen Sie ihn erneut raus. Der Ölstand sollte zwischen Min und Max sein.',
+                    'difficulty' => 'leicht',
+                    'time' => '2 Minuten'
+                ],
+                [
+                    'id' => 'check_belts',
+                    'title' => 'Keilriemen anschauen',
+                    'instruction' => 'Öffnen Sie die Motorhaube (Hebel links unter dem Lenkrad). Schauen Sie auf die Riemen - dürfen nicht gerissen oder locker sein.',
+                    'difficulty' => 'leicht',
+                    'time' => '3 Minuten'
+                ]
+            ],
+            'brake_squeal' => [
+                [
+                    'id' => 'check_brake_fluid',
+                    'title' => 'Bremsflüssigkeit prüfen',
+                    'instruction' => 'Im Motorraum finden Sie einen Behälter mit "BRAKE" beschriftet. Die Flüssigkeit sollte zwischen Min und Max sein.',
+                    'difficulty' => 'leicht',
+                    'time' => '2 Minuten'
+                ],
+                [
+                    'id' => 'visual_brake_check',
+                    'title' => 'Bremsen durch Felgen schauen',
+                    'instruction' => 'Schauen Sie durch die Speichen Ihrer Felgen. Die Bremsscheiben sollten glatt sein, die Beläge mindestens 3mm dick.',
+                    'difficulty' => 'mittel',
+                    'time' => '5 Minuten'
+                ]
+            ]
+        ];
+        
+        $this->success(['checklist' => $checklists[$symptom] ?? []]);
+    }
+    
+    private function calculateSafetyScore($answers) {
+        $baseScore = 100;
+        
+        // Reduziere Punkte für kritische Probleme
+        $penalties = [
+            'engine_noise' => 25,
+            'oil_light' => 30,
+            'coolant_temp' => 35,
+            'brake_squeal' => 20,
+            'steering_vibration' => 15
+        ];
+        
+        foreach ($answers as $questionId => $answer) {
+            if ($answer === 'yes' && isset($penalties[$questionId])) {
+                $baseScore -= $penalties[$questionId];
+            }
+        }
+        
+        $score = max(40, min(100, $baseScore));
+        
+        $this->success(['safety_score' => $score]);
+    }
+    
+    private function handleChat($message, $context) {
+        if (empty($message)) {
+            $this->error('Keine Nachricht angegeben');
+            return;
+        }
+        
+        $response = $this->meister->generateResponse($message, $context);
+        
+        $this->success(['response' => $response]);
+    }
+    
+    private function analyzeSymptom($data) {
+        $symptom = $data['symptom'] ?? '';
+        $hsn = $data['hsn'] ?? '';
+        $tsn = $data['tsn'] ?? '';
+        
+        $analysis = $this->meister->analyzeProblem($symptom, $hsn, $tsn);
+        
+        $this->success(['analysis' => $analysis]);
+    }
 }
 
-// Nur POST erlauben
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['error' => 'Nur POST erlaubt.']);
-    exit();
-}
-
-// JSON-Body einlesen
-$input = json_decode(file_get_contents('php://input'), true);
-if (!is_array($input)) {
-    http_response_code(400);
-    echo json_encode(['error' => 'Ungültiges JSON.']);
-    exit();
-}
-
-$vehicle_id = $input['vehicle_id'] ?? null;
-$problem_description = $input['problem_description'] ?? '';
-$user_answers = $input['user_answers'] ?? [];
-
-if (!$vehicle_id || trim($problem_description) === '') {
-    http_response_code(400);
-    echo json_encode(['error' => 'vehicle_id und problem_description erforderlich.']);
-    exit();
-}
-
-// Datenbankverbindung
-require_once __DIR__ . '/../config/database.php';
-
-// Fahrzeug abrufen
-$pdo = new PDO(DB_DSN, DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-$stmt = $pdo->prepare("SELECT * FROM vehicles WHERE id = :id");
-$stmt->execute([':id' => $vehicle_id]);
-$vehicle = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$vehicle) {
-    http_response_code(404);
-    echo json_encode(['error' => 'Fahrzeug nicht gefunden.']);
-    exit();
-}
-
-// Simulierter Aufruf der Claude API
-// In Produktion: HTTP-Request an Anthropic Claude API
-$diagnosis = simulateClaudeDiagnosis($vehicle, $problem_description, $user_answers);
-
-// Diagnose speichern (optional)
-$stmt = $pdo->prepare(
-    "INSERT INTO diagnoses (vehicle_id, problem_description, diagnosis_json, created_at)
-     VALUES (:vid, :prob, :diag, NOW())"
-);
-$stmt->execute([
-    ':vid' => $vehicle_id,
-    ':prob' => $problem_description,
-    ':diag' => json_encode($diagnosis)
-]);
-
-echo json_encode($diagnosis);
-
-/**
- * Simuliert den Aufruf der Claude API.
- * @param array $vehicle
- * @param string $problem
- * @param array $answers
- * @return array
- */
-function simulateClaudeDiagnosis(array $vehicle, string $problem, array $answers): array
-{
-    // Vereinfachte Logik zur Simulation
-    $possibleIssues = [
-        'Bremsen' => ['Bremsbeläge verschlissen', 'Bremsflüssigkeit niedrig'],
-        'Motor' => ['Zündkerzen defekt', 'Ölstand zu niedrig'],
-        'Elektrik' => ['Batterie schwach', 'Sicherung durchgebrannt'],
-        'Getriebe' => ['Getriebeöl niedrig', 'Kupplung verschleißt'],
-    ];
-
-    // Dummy-Kategorie auswählen
-    $category = array_keys($possibleIssues)[rand(0, count($possibleIssues) - 1)];
-    $issue = $possibleIssues[$category][rand(0, count($possibleIssues[$category]) - 1)];
-
-    return [
-        'category' => $category,
-        'issue' => $issue,
-        'severity' => rand(1, 5),
-        'estimated_cost_min' => rand(50, 200),
-        'estimated_cost_max' => rand(200, 800),
-        'next_questions' => [], // Optional: weitere Rückfragen
-        'workshop_category' => strtolower($category)
-    ];
-}
+$api = new DiagnoseAPI();
+$api->handleRequest();
+?>
