@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Carfify Test Suite</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial; margin: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .pass { background: #d4edda; color: #155724; }
+        .fail { background: #f8d7da; color: #721c24; }
+        .running { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>Carfify v4.0 Test Suite</h1>
+    <div id="results"></div>
+    
+    <script>
+    const tests = [
+        { name: 'System Check', url: 'system-check.php' },
+        { name: 'Diagnose API', url: 'api/diagnose.php' },
+        { name: 'Verkaufen API', url: 'api/verkaufen.php' },
+        { name: 'PWA Manifest', url: 'manifest.json' },
+        { name: 'Service Worker', url: 'sw.js' }
+    ];
+    
+    async function runTests() {
+        const results = document.getElementById('results');
+        
+        for (const test of tests) {
+            const div = document.createElement('div');
+            div.className = 'test-result running';
+            div.textContent = `Testing ${test.name}...`;
+            results.appendChild(div);
+            
+            try {
+                const response = await fetch(test.url);
+                const ok = response.ok;
+                div.className = ok ? 'test-result pass' : 'test-result fail';
+                div.textContent = `${test.name}: ${ok ? 'PASS' : 'FAIL'} (${response.status})`;
+            } catch (e) {
+                div.className = 'test-result fail';
+                div.textContent = `${test.name}: FAIL (${e.message})`;
+            }
+        }
+    }
+    
+    runTests();
+    </script>
+</body>
+</html>
