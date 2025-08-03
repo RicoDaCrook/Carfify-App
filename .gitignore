@@ -1,0 +1,9 @@
+# Carfify v4.0 - Git Ignore
+*.log
+*.tmp
+node_modules/
+.DS_Store
+.env
+backup_*/
+old_*
+*.bak
