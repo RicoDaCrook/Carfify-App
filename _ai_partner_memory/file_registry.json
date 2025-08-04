@@ -3,6 +3,16 @@
     "config.php": {
       "created_date": "2025-08-04T13:25:34.335451",
       "purpose": "config",
+      "sessions_used": 2
+    },
+    "bootstrap.php": {
+      "created_date": "2025-08-04T13:32:51.712432",
+      "purpose": "fix",
+      "sessions_used": 1
+    },
+    "index.php": {
+      "created_date": "2025-08-04T13:32:51.713232",
+      "purpose": "fix",
       "sessions_used": 1
     }
   },
@@ -15,6 +25,18 @@
         "path": "C:/Users/kleinanzeige/Desktop/carfify-app/Carfify-App\\_backups\\20250804\\index.php_132534_v1.backup",
         "date": "2025-08-04T13:25:34.338089",
         "size": 4885
+      },
+      {
+        "path": "C:/Users/kleinanzeige/Desktop/carfify-app/Carfify-App\\_backups\\20250804\\index.php_133251_v2.backup",
+        "date": "2025-08-04T13:32:51.710272",
+        "size": 4885
+      }
+    ],
+    ".htaccess": [
+      {
+        "path": "C:/Users/kleinanzeige/Desktop/carfify-app/Carfify-App\\_backups\\20250804\\.htaccess_133251_v1.backup",
+        "date": "2025-08-04T13:32:51.708452",
+        "size": 2780
       }
     ]
   }
