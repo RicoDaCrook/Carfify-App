@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carfify - Auto Diagnose & Verkauf</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg-primary: #0f0f14;
+            --bg-secondary: #1a1a24;
+            --accent: #4cc3ee;
+            --text-primary: #ffffff;
+            --text-secondary: #a1a1aa;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+        
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .glass-container {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 1rem;
+        }
+        
+        .nav-glass {
+            background: rgba(15, 15, 20, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+        }
+        
+        .accent-gradient {
+            background: linear-gradient(135deg, var(--accent), #3aa8d0);
+        }
+        
+        .hover-lift {
+            transition: all 0.3s ease;
+        }
+        
+        .hover-lift:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(76, 195, 238, 0.2);
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Navigation -->
+    <nav class="nav-glass fixed top-0 left-0 right-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Logo -->
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 accent-gradient rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold text-lg">C</span>
+                    </div>
+                    <span class="text-xl font-bold text-white">Carfify</span>
+                </div>
+                
+                <!-- Desktop Navigation -->
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="#diagnose" class="text-gray-300 hover:text-white transition-colors">Diagnose</a>
+                    <a href="#verkaufen" class="text-gray-300 hover:text-white transition-colors">Verkaufen</a>
+                    <a href="#features" class="text-gray-300 hover:text-white transition-colors">Features</a>
+                </div>
+                
+                <!-- Mobile Menu Button -->
+                <button class="md:hidden text-gray-300 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="pt-20 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <!-- Hero Section -->
+            <section class="glass-container p-8 md:p-12 mb-8 hover-lift">
+                <h1 class="text-3xl md:text-4xl font-bold mb-4">
+                    Willkommen bei <span class="text-transparent bg-clip-text accent-gradient">Carfify</span>
+                </h1>
+                <p class="text-gray-300 text-lg mb-6">
+                    Intelligente Auto-Diagnose und schneller Verkauf - alles in einer App
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <button class="accent-gradient text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity">
+                        Diagnose starten
+                    </button>
+                    <button class="glass-container px-6 py-3 rounded-lg font-semibold hover:bg-white/10 transition-colors">
+                        Auto verkaufen
+                    </button>
+                </div>
+            </section>
+
+            <!-- Feature Grid -->
+            <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Diagnose Card -->
+                <div class="glass-container p-6 hover-lift">
+                    <div class="w-12 h-12 accent-gradient rounded-lg mb-4 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">KI-Diagnose</h3>
+                    <p class="text-gray-400">Schnelle und präzise Fahrzeugdiagnose mit KI-Unterstützung</p>
+                </div>
+
+                <!-- Verkaufen Card -->
+                <div class="glass-container p-6 hover-lift">
+                    <div class="w-12 h-12 accent-gradient rounded-lg mb-4 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">Schnell verkaufen</h3>
+                    <p class="text-gray-400">Optimierte Vermarktung für den besten Preis</p>
+                </div>
+
+                <!-- PWA Card -->
+                <div class="glass-container p-6 hover-lift">
+                    <div class="w-12 h-12 accent-gradient rounded-lg mb-4 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">Mobile App</h3>
+                    <p class="text-gray-400">Installierbare PWA für iOS und Android</p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-16 py-8 border-t border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center text-gray-400">
+                <p>&copy; 2024 Carfify. Alle Rechte vorbehalten.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => console.log('SW registered'))
+                    .catch(registrationError => console.log('SW registration failed'));
+            });
+        }
+    </script>
+</body>
+</html>
