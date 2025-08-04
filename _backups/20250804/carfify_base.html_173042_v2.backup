@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carfify - Auto Diagnose & Verkauf</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1a1a2e">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #555;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .hsn-tsn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .problem-examples {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .example-btn {
+            background: #f0f0f0;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .example-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .diagnose-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 16px 40px;
+            font-size: 18px;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .diagnose-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+        }
+
+        .diagnose-btn:active {
+            transform: translateY(-1px);
+        }
+
+        .diagnose-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .diagnose-btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .diagnose-btn.loading {
+            pointer-events: none;
+        }
+
+        .diagnose-btn.loading::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 50%;
+            left: 50%;
+            margin: -10px 0 0 -10px;
+            border: 2px solid transparent;
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .section-title {
+            font-size: 2rem;
+            margin-bottom: 30px;
+            color: #333;
+            text-align: center;
+        }
+
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .action-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .hsn-tsn-group {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚗 Carfify</h1>
+            <p>Auto Diagnose & Verkauf - Einfach & Schnell</p>
+        </div>
+
+        <div class="card">
+            <h2 class="section-title">🔍 Fahrzeug Auswahl & Diagnose</h2>
+            
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="marke">Fahrzeugmarke</label>
+                    <select id="marke" name="marke">
+                        <option value="">Bitte wählen...</option>
+                        <option value="bmw">BMW</option>
+                        <option value="mercedes">Mercedes</option>
+                        <option value="vw">VW</option>
+                        <option value="audi">Audi</option>
+                        <option value="opel">Opel</option>
+                        <option value="ford">Ford</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>HSN / TSN</label>
+                    <div class="hsn-tsn-group">
+                        <input type="text" id="hsn" name="hsn" placeholder="HSN (z.B. 0005)" maxlength="4">
+                        <input type="text" id="tsn" name="tsn" placeholder="TSN (z.B. AAG)" maxlength="3">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="problem">Beschreiben Sie Ihr Problem</label>
+                    <textarea id="problem" name="problem" rows="3" placeholder="z.B. Motor springt nicht an..."></textarea>
+                    <div class="problem-examples">
+                        <button type="button" class="example-btn" onclick="setProblem('Motor springt nicht an')">Motor springt nicht an</button>
+                        <button type="button" class="example-btn" onclick="setProblem('Quietschen beim Bremsen')">Quietschen beim Bremsen</button>
+                        <button type="button" class="example-btn" onclick="setProblem('Ölverlust')">Ölverlust</button>
+                        <button type="button" class="example-btn" onclick="setProblem('Kupplung rutscht')">Kupplung rutscht</button>
+                    </div>
+                </div>
+            </div>
+
+            <div style="text-align: center;">
+                <button class="diagnose-btn" onclick="startDiagnose()">
+                    <span>🚀 Diagnose starten</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="section-title">⚡ Schnellzugriff</h2>
+            <div class="action-buttons">
+                <a href="#" class="action-btn">💰 Auto verkaufen</a>
+                <a href="#" class="action-btn">📊 Marktwert prüfen</a>
+                <a href="#" class="action-btn">🔧 Werkstatt finden</a>
+                <a href="#" class="action-btn">📱 App downloaden</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Service Worker Registration for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => console.log('SW registered'))
+                    .catch(registrationError => console.log('SW registration failed'));
+            });
+        }
+
+        function setProblem(text) {
+            document.getElementById('problem').value = text;
+            document.getElementById('problem').focus();
+        }
+
+        function startDiagnose() {
+            const btn = document.querySelector('.diagnose-btn');
+            const marke = document.getElementById('marke').value;
+            const hsn = document.getElementById('hsn').value;
+            const tsn = document.getElementById('tsn').value;
+            const problem = document.getElementById('problem').value;
+
+            if (!marke || !hsn || !tsn || !problem) {
+                alert('Bitte füllen Sie alle Felder aus!');
+                return;
+            }
+
+            btn.classList.add('loading');
+            btn.innerHTML = '<span>Analysiere...</span>';
+
+            // Simulate API call
+            setTimeout(() => {
+                btn.classList.remove('loading');
+                btn.innerHTML = '<span>✅ Diagnose abgeschlossen</span>';
+                
+                // Show results (in real app, this would be API response)
+                setTimeout(() => {
+                    btn.innerHTML = '<span>🚀 Diagnose starten</span>';
+                    alert(`Diagnose für ${marke.toUpperCase()} mit HSN: ${hsn} und TSN: ${tsn}\n\nProblem: ${problem}\n\nMögliche Ursache: Starter-Defekt\nGeschätzte Reparaturkosten: 350-450€`);
+                }, 2000);
+            }, 3000);
+        }
+
+        // Add some interactive animations
+        document.querySelectorAll('input, select, textarea').forEach(element => {
+            element.addEventListener('focus', () => {
+                element.parentElement.style.transform = 'scale(1.02)';
+            });
+            
+            element.addEventListener('blur', () => {
+                element.parentElement.style.transform = 'scale(1)';
+            });
+        });
+    </script>
+</body>
+</html>
