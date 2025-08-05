@@ -1,0 +1,306 @@
+/* Diagnose Styles */
+.diagnose-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.diagnose-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.diagnose-header h1 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+}
+
+.progress-container {
+    margin: 20px 0;
+}
+
+.progress-bar {
+    height: 8px;
+    background: #ecf0f1;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3498db, #2ecc71);
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.progress-text {
+    font-size: 14px;
+    color: #7f8c8d;
+    margin-top: 5px;
+}
+
+/* Kategorie-Auswahl */
+.category-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-top: 30px;
+}
+
+.category-card {
+    background: white;
+    border: 2px solid #ecf0f1;
+    border-radius: 12px;
+    padding: 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.category-card:hover {
+    border-color: #3498db;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.2);
+}
+
+.category-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+}
+
+.category-card h3 {
+    margin: 10px 0;
+    color: #2c3e50;
+}
+
+.category-card p {
+    color: #7f8c8d;
+    margin: 0;
+}
+
+/* Fragen-Bereich */
+.question-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 30px;
+}
+
+.back-btn {
+    background: none;
+    border: none;
+    color: #3498db;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 5px 10px;
+}
+
+.question-counter {
+    color: #7f8c8d;
+    font-size: 14px;
+}
+
+.question-card {
+    background: white;
+    border-radius: 12px;
+    padding: 40px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.question-card h3 {
+    color: #2c3e50;
+    margin-bottom: 30px;
+    font-size: 20px;
+    line-height: 1.5;
+}
+
+.answer-options {
+    display: flex;
+    gap: 15px;
+    flex-direction: column;
+}
+
+.answer-btn {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    width: 100%;
+    padding: 20px;
+    border: 2px solid #ecf0f1;
+    border-radius: 8px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 16px;
+}
+
+.answer-btn:hover {
+    border-color: #3498db;
+    background: #f8f9fa;
+}
+
+.answer-icon {
+    font-size: 20px;
+    width: 30px;
+    text-align: center;
+}
+
+/* Hilfe-Box */
+.help-box {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.help-content {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 400px;
+    margin: 20px;
+}
+
+.help-content h4 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+}
+
+.help-content p {
+    color: #7f8c8d;
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+
+.close-help {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    width: 100%;
+}
+
+/* Ergebnis-Bereich */
+.diagnosis-card {
+    background: white;
+    border-radius: 12px;
+    padding: 40px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.diagnosis-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.confidence-meter {
+    height: 12px;
+    background: #ecf0f1;
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 15px 0;
+}
+
+.confidence-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.confidence-fill.low {
+    background: linear-gradient(90deg, #e74c3c, #c0392b);
+}
+
+.confidence-fill.medium {
+    background: linear-gradient(90deg, #f39c12, #e67e22);
+}
+
+.confidence-fill.high {
+    background: linear-gradient(90deg, #2ecc71, #27ae60);
+}
+
+.issue-list {
+    margin: 30px 0;
+}
+
+.issue-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    border-bottom: 1px solid #ecf0f1;
+}
+
+.issue-category {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.issue-probability {
+    color: #3498db;
+    font-weight: 500;
+}
+
+.next-actions {
+    display: flex;
+    gap: 15px;
+    margin-top: 30px;
+}
+
+.action-btn {
+    flex: 1;
+    padding: 15px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.action-btn.primary {
+    background: #3498db;
+    color: white;
+}
+
+.action-btn.secondary {
+    background: #ecf0f1;
+    color: #2c3e50;
+}
+
+.action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Responsive Design */
+@media (max-width: 600px) {
+    .diagnose-container {
+        padding: 10px;
+    }
+    
+    .category-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .question-card {
+        padding: 20px;
+    }
+    
+    .answer-options {
+        gap: 10px;
+    }
+    
+    .answer-btn {
+        padding: 15px;
+    }
+}

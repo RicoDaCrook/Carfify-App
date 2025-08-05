@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carfify - Intelligente Diagnose</title>
+    <link rel="stylesheet" href="diagnose.css">
+    <link rel="manifest" href="../manifest.json">
+</head>
+<body>
+    <div class="diagnose-container">
+        <header class="diagnose-header">
+            <h1>Fahrzeug-Diagnose</h1>
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <span class="progress-text" id="progressText">0/20 Fragen</span>
+            </div>
+        </header>
+
+        <div class="diagnose-content">
+            <!-- Kategorie-Auswahl -->
+            <div class="category-selection" id="categorySelection">
+                <h2>Wählen Sie eine Kategorie</h2>
+                <div class="category-grid">
+                    <button class="category-card" data-category="motor">
+                        <div class="category-icon">🔧</div>
+                        <h3>Motor</h3>
+                        <p>5 Fragen</p>
+                    </button>
+                    <button class="category-card" data-category="bremsen">
+                        <div class="category-icon">🛑</div>
+                        <h3>Bremsen</h3>
+                        <p>5 Fragen</p>
+                    </button>
+                    <button class="category-card" data-category="fahrwerk">
+                        <div class="category-icon">⚙️</div>
+                        <h3>Fahrwerk</h3>
+                        <p>5 Fragen</p>
+                    </button>
+                    <button class="category-card" data-category="elektronik">
+                        <div class="category-icon">💡</div>
+                        <h3>Elektronik</h3>
+                        <p>5 Fragen</p>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Fragen-Bereich -->
+            <div class="question-area" id="questionArea" style="display: none;">
+                <div class="question-header">
+                    <button class="back-btn" id="backBtn">← Zurück</button>
+                    <h2 id="categoryTitle">Motor-Diagnose</h2>
+                    <span class="question-counter" id="questionCounter">Frage 1/5</span>
+                </div>
+                
+                <div class="question-card">
+                    <h3 id="questionText">Läuft der Motor rau beim Start?</h3>
+                    <div class="answer-options">
+                        <button class="answer-btn" data-answer="yes">
+                            <span class="answer-icon">✓</span>
+                            Ja
+                        </button>
+                        <button class="answer-btn" data-answer="no">
+                            <span class="answer-icon">✗</span>
+                            Nein
+                        </button>
+                        <button class="answer-btn help-trigger" data-answer="unknown">
+                            <span class="answer-icon">?</span>
+                            Weiß nicht
+                        </button>
+                    </div>
+                </div>
+
+                <div class="help-box" id="helpBox" style="display: none;">
+                    <div class="help-content">
+                        <h4>Wie erkenne ich das?</h4>
+                        <p id="helpText">Beobachten Sie das Startverhalten: Ein rauer Start zeigt sich durch ungleichmäßige Drehzahl, Vibrationen oder auffällige Geräusche in den ersten Sekunden.</p>
+                        <button class="close-help" id="closeHelp">Verstanden</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ergebnis-Bereich -->
+            <div class="results-area" id="resultsArea" style="display: none;">
+                <div class="diagnosis-card">
+                    <div class="diagnosis-header">
+                        <h2>Diagnose-Ergebnis</h2>
+                        <div class="confidence-meter">
+                            <div class="confidence-fill" id="confidenceFill"></div>
+                        </div>
+                        <span class="confidence-text" id="confidenceText">85% Sicherheit</span>
+                    </div>
+                    
+                    <div class="diagnosis-results">
+                        <div class="issue-list" id="issueList">
+                            <!-- Dynamisch gefüllt -->
+                        </div>
+                        
+                        <div class="next-actions">
+                            <button class="action-btn primary" id="viewDetails">Details anzeigen</button>
+                            <button class="action-btn secondary" id="restartDiagnose">Neue Diagnose</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="diagnose.js"></script>
+</body>
+</html>
