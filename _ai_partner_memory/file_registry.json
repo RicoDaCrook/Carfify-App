@@ -74,6 +74,16 @@
       "created_date": "2025-08-05T13:35:36.344948",
       "purpose": "feature",
       "sessions_used": 1
+    },
+    "carfify_complete.html": {
+      "created_date": "2025-08-05T15:11:04.535209",
+      "purpose": "feature",
+      "sessions_used": 1
+    },
+    "CarfifyCore.php": {
+      "created_date": "2025-08-08T17:10:57.039366",
+      "purpose": "core",
+      "sessions_used": 1
     }
   },
   "modified_files": {},
@@ -136,6 +146,13 @@
         "path": "C:/Users/kleinanzeige/Desktop/carfify-app/Carfify-App\\_backups\\20250805\\manifest.json_133536_v1.backup",
         "date": "2025-08-05T13:35:36.348512",
         "size": 796
+      }
+    ],
+    "config.php": [
+      {
+        "path": "C:/Users/kleinanzeige/Desktop/carfify-app/Carfify-App\\_backups\\20250808\\config.php_171057_v1.backup",
+        "date": "2025-08-08T17:10:57.041512",
+        "size": 2945
       }
     ]
   }
