@@ -1,104 +1,99 @@
 <?php
 /**
- * Carfify v4.0 Configuration
- * Haupt-Konfigurationsdatei für alle Features
+ * CARFIFY AI v4.0 - Configuration
+ * Standalone-Version ohne Composer
  */
 
-// Sicherheits-Check
-if (!defined('CARFIFY_START')) {
-    die('Direct access not allowed');
-}
+// Fehlerbehandlung aktivieren
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
-// Basis-Konfiguration
-define('CARFIFY_VERSION', '4.0.0');
-define('CARFIFY_ENV', 'production'); // 'development' oder 'production'
-
-// Datenbank-Konfiguration
-define('DB_HOST', $_ENV['DB_HOST'] ?? 'localhost');
-define('DB_NAME', $_ENV['DB_NAME'] ?? 'carfify_db');
-define('DB_USER', $_ENV['DB_USER'] ?? 'root');
-define('DB_PASS', $_ENV['DB_PASS'] ?? '');
-define('DB_CHARSET', 'utf8mb4');
-
-// PWA-Konfiguration
-define('PWA_NAME', 'Carfify');
-define('PWA_SHORT_NAME', 'Carfify');
-define('PWA_DESCRIPTION', 'Auto Diagnose & Verkauf');
-define('PWA_THEME_COLOR', '#1a1a2e');
-define('PWA_BACKGROUND_COLOR', '#ffffff');
-
-// API-Konfiguration
-define('API_BASE_URL', $_ENV['API_BASE_URL'] ?? 'https://api.carfify.local');
-define('API_TIMEOUT', 30);
-
-// Diagnose-Feature
-define('DIAG_MAX_FILE_SIZE', 5 * 1024 * 1024); // 5MB
-define('DIAG_ALLOWED_TYPES', ['image/jpeg', 'image/png', 'image/webp']);
-
-// Verkaufs-Feature
-define('MAX_IMAGES_PER_CAR', 10);
-define('IMAGE_QUALITY', 85);
-
-// Session-Konfiguration
-ini_set('session.cookie_httponly', 1);
-ini_set('session.use_strict_mode', 1);
-ini_set('session.cookie_secure', isset($_SERVER['HTTPS']));
-
-// Error-Handling
-if (CARFIFY_ENV === 'development') {
-    error_reporting(E_ALL);
-    ini_set('display_errors', 1);
-} else {
-    error_reporting(0);
-    ini_set('display_errors', 0);
-}
-
-// Zeitzone
+// Zeitzone setzen
 date_default_timezone_set('Europe/Berlin');
 
-// Hilfsfunktionen
-function carfify_base_url() {
-    return (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['SCRIPT_NAME']);
-}
-
-function carfify_asset($path) {
-    return carfify_base_url() . '/assets/' . ltrim($path, '/');
-}
+// Basis-Konfiguration
+$config = [
+    'app' => [
+        'name' => 'Carfify AI',
+        'version' => '4.0.0',
+        'debug' => true,
+        'environment' => 'development'
+    ],
+    
+    'database' => [
+        'host' => 'localhost',
+        'name' => 'carfify',
+        'user' => 'root',
+        'pass' => '',
+        'charset' => 'utf8mb4'
+    ],
+    
+    'paths' => [
+        'base' => dirname(__FILE__),
+        'uploads' => dirname(__FILE__) . '/uploads',
+        'logs' => dirname(__FILE__) . '/logs',
+        'cache' => dirname(__FILE__) . '/cache'
+    ],
+    
+    'security' => [
+        'salt' => 'carfify_secure_salt_2024',
+        'session_timeout' => 3600
+    ],
+    
+    'api' => [
+        'openai_key' => '',
+        'anthropic_key' => '',
+        'rate_limit' => 100
+    ]
+];
 
 // Datenbank-Verbindung
-function getDbConnection() {
-    static $pdo = null;
-    
-    if ($pdo === null) {
-        try {
-            $dsn = 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=' . DB_CHARSET;
-            $options = [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false,
-            ];
-            $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
-        } catch (PDOException $e) {
-            die('Database connection failed: ' . $e->getMessage());
-        }
+function getDBConnection() {
+    global $config;
+    try {
+        $dsn = "mysql:host={$config['database']['host']};dbname={$config['database']['name']};charset={$config['database']['charset']}";
+        $pdo = new PDO($dsn, $config['database']['user'], $config['database']['pass']);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        return $pdo;
+    } catch(PDOException $e) {
+        die("Datenbankverbindung fehlgeschlagen: " . $e->getMessage());
     }
-    
-    return $pdo;
 }
 
-// Sicherheits-Token
-function generateCSRFToken() {
-    if (!isset($_SESSION['csrf_token'])) {
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-    }
-    return $_SESSION['csrf_token'];
-}
-
-// Session-Start
+// Session starten
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Konstante für Sicherheits-Check
-define('CARFIFY_START', true);
+// Autoloader für eigene Klassen (ohne Composer)
+spl_autoload_register(function($className) {
+    $className = str_replace('\\', DIRECTORY_SEPARATOR, $className);
+    $file = __DIR__ . '/classes/' . $className . '.php';
+    if (file_exists($file)) {
+        require_once $file;
+    }
+});
+
+// Composer-Autoload auskommentiert für Standalone-Betrieb
+// require_once __DIR__ . '/vendor/autoload.php';
+
+// Hilfsfunktionen
+function sanitize($data) {
+    return htmlspecialchars(strip_tags(trim($data)), ENT_QUOTES, 'UTF-8');
+}
+
+function redirect($url) {
+    header("Location: $url");
+    exit();
+}
+
+function logError($message) {
+    global $config;
+    $logFile = $config['paths']['logs'] . '/error_' . date('Y-m-d') . '.log';
+    $message = date('Y-m-d H:i:s') . ' - ' . $message . PHP_EOL;
+    file_put_contents($logFile, $message, FILE_APPEND | LOCK_EX);
+}
+
+// Konfiguration global verfügbar machen
+$GLOBALS['config'] = $config;
 ?>
