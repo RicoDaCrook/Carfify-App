@@ -88,32 +88,32 @@
     "workshop-service.php": {
       "created_date": "2025-08-20T13:30:47.526909",
       "purpose": "general",
-      "sessions_used": 1
+      "sessions_used": 2
     },
     "workshop-finder.js": {
       "created_date": "2025-08-20T13:30:47.527464",
       "purpose": "general",
-      "sessions_used": 1
+      "sessions_used": 2
     },
     "workshop-finder.css": {
       "created_date": "2025-08-20T13:30:47.528153",
       "purpose": "general",
-      "sessions_used": 1
+      "sessions_used": 2
     },
     "workshop-tabs.php": {
       "created_date": "2025-08-20T13:30:47.528654",
       "purpose": "general",
-      "sessions_used": 1
+      "sessions_used": 2
     },
     "api-keys.php": {
       "created_date": "2025-08-20T13:30:47.529348",
       "purpose": "general",
-      "sessions_used": 1
+      "sessions_used": 2
     },
     ".htaccess": {
       "created_date": "2025-08-20T13:30:47.529808",
       "purpose": "general",
-      "sessions_used": 1
+      "sessions_used": 2
     }
   },
   "modified_files": {},
