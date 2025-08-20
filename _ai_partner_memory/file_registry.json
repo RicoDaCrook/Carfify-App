@@ -167,6 +167,11 @@
         "path": "C:/Users/kleinanzeige/Desktop/carfify-app/Carfify-App\\_backups\\20250804\\index.php_141216_v6.backup",
         "date": "2025-08-04T14:12:16.425458",
         "size": 3517
+      },
+      {
+        "path": "C:/Users/kleinanzeige/Desktop/carfify-app/Carfify-App\\_backups\\20250820\\index.php_151018_v1.backup",
+        "date": "2025-08-20T15:10:18.839933",
+        "size": 4478
       }
     ],
     ".htaccess": [
@@ -200,6 +205,11 @@
         "path": "C:/Users/kleinanzeige/Desktop/carfify-app/Carfify-App\\_backups\\20250808\\config.php_171057_v1.backup",
         "date": "2025-08-08T17:10:57.041512",
         "size": 2945
+      },
+      {
+        "path": "C:/Users/kleinanzeige/Desktop/carfify-app/Carfify-App\\_backups\\20250820\\config.php_151018_v1.backup",
+        "date": "2025-08-20T15:10:18.837607",
+        "size": 904
       }
     ]
   }
