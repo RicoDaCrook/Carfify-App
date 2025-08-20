@@ -1,0 +1,390 @@
+/* Workshop Finder Styles */
+.workshop-finder {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Tab Navigation */
+.tab-navigation {
+    display: flex;
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 30px;
+}
+
+.tab-button {
+    flex: 1;
+    padding: 15px 30px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.tab-button.active {
+    background: #007bff;
+    color: white;
+    box-shadow: 0 2px 8px rgba(0,123,255,0.3);
+}
+
+/* Filters */
+.filters {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 30px;
+    align-items: center;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.filter-group label {
+    font-weight: 600;
+    color: #333;
+}
+
+#radius-slider {
+    width: 150px;
+}
+
+#radius-value {
+    font-weight: bold;
+    color: #007bff;
+    min-width: 60px;
+}
+
+#sort-select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: white;
+}
+
+/* Workshop Cards */
+.workshops-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 20px;
+}
+
+.workshop-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 20px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.workshop-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.workshop-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+}
+
+.workshop-header h3 {
+    margin: 0;
+    font-size: 1.3em;
+    color: #333;
+}
+
+.rating {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.stars {
+    color: #ffc107;
+    font-size: 1.2em;
+}
+
+.rating-text {
+    font-size: 0.9em;
+    color: #666;
+}
+
+.workshop-info {
+    margin-bottom: 15px;
+}
+
+.address {
+    color: #666;
+    margin: 0 0 5px 0;
+}
+
+.distance {
+    color: #007bff;
+    font-weight: 600;
+    margin: 0;
+}
+
+.match-score {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: #e8f5e8;
+    border-radius: 6px;
+    display: inline-block;
+}
+
+.score {
+    font-weight: bold;
+    color: #28a745;
+}
+
+.match-text {
+    color: #666;
+    font-size: 0.9em;
+}
+
+/* AI Analysis */
+.ai-analysis {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.pros, .cons {
+    padding: 10px;
+    border-radius: 6px;
+}
+
+.pros {
+    background: #e8f5e8;
+}
+
+.cons {
+    background: #ffe8e8;
+}
+
+.pros h4, .cons h4 {
+    margin: 0 0 8px 0;
+    font-size: 0.9em;
+}
+
+.pros ul, .cons ul {
+    margin: 0;
+    padding-left: 15px;
+    font-size: 0.85em;
+}
+
+.pros li {
+    color: #28a745;
+}
+
+.cons li {
+    color: #dc3545;
+}
+
+/* Trend Indicator */
+.trend-indicator {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.trend {
+    font-size: 0.9em;
+    font-weight: 600;
+}
+
+.trend.up {
+    color: #28a745;
+}
+
+.trend.down {
+    color: #dc3545;
+}
+
+.trend.stable {
+    color: #6c757d;
+}
+
+.price-range {
+    font-weight: 600;
+    color: #007bff;
+}
+
+/* Buttons */
+.btn-primary {
+    width: 100%;
+    padding: 12px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-primary:hover {
+    background: #0056b3;
+}
+
+.btn-primary.large {
+    font-size: 1.1em;
+    padding: 15px;
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 5% auto;
+    padding: 0;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.modal-header h2 {
+    margin: 0;
+    color: #333;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5em;
+    cursor: pointer;
+    color: #666;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.workshop-details p {
+    margin: 10px 0;
+    color: #666;
+}
+
+.map-container {
+    margin: 20px 0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.full-analysis {
+    margin: 30px 0;
+}
+
+.pros-cons-full {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-top: 20px;
+}
+
+.pros-full, .cons-full {
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.pros-full {
+    background: #e8f5e8;
+}
+
+.cons-full {
+    background: #ffe8e8;
+}
+
+.pros-full h4, .cons-full h4 {
+    margin: 0 0 15px 0;
+    font-size: 1.1em;
+}
+
+.pros-full ul, .cons-full ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.cta-section {
+    margin-top: 30px;
+    text-align: center;
+}
+
+/* Loading */
+#workshops-loading {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+.spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #007bff;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .workshops-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .filters {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .ai-analysis {
+        grid-template-columns: 1fr;
+    }
+    
+    .pros-cons-full {
+        grid-template-columns: 1fr;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 10% auto;
+    }
+}
