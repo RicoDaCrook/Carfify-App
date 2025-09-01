@@ -1,87 +1,133 @@
 <?php
 /**
- * Carfify v4.0 - Configuration Management
- * Enterprise Grade Configuration Handler
+ * Carfify Configuration Class
+ * 
+ * @package Core
+ * @version 4.0
  */
-
-declare(strict_types=1);
 
 namespace Core;
 
+/**
+ * Singleton Configuration Class
+ */
 class Config
 {
-    private static array $config = [];
-    private static bool $loaded = false;
+    private static $instance = null;
+    private $config = [];
+    private $configPath;
+    
+    private function __construct()
+    {
+        $this->configPath = APP_ROOT . '/config';
+        $this->loadDefaults();
+        $this->loadEnvironmentConfig();
+    }
     
     /**
-     * Load all configuration files
-     * @throws \Exception
+     * Get singleton instance
+     * 
+     * @return Config
      */
-    public static function load(): void
+    public static function getInstance()
     {
-        if (self::$loaded) {
-            return;
+        if (self::$instance === null) {
+            self::$instance = new self();
         }
         
-        $configDir = APP_ROOT . 'config' . DIRECTORY_SEPARATOR;
-        
-        if (!is_dir($configDir)) {
-            throw new \Exception('Configuration directory not found: ' . $configDir);
-        }
-        
-        // Load base configuration files in order
-        $configFiles = [
-            'app.php',
-            'database.php',
-            'cache.php',
-            'logging.php',
-            'security.php'
+        return self::$instance;
+    }
+    
+    /**
+     * Load default configuration
+     */
+    private function loadDefaults()
+    {
+        $this->config = [
+            'app' => [
+                'name' => 'Carfify v4.0',
+                'version' => '4.0.0',
+                'debug' => true,
+                'timezone' => 'Europe/Berlin'
+            ],
+            'database' => [
+                'driver' => 'mysql',
+                'host' => 'localhost',
+                'port' => 3306,
+                'charset' => 'utf8mb4'
+            ],
+            'paths' => [
+                'root' => APP_ROOT,
+                'core' => CORE_PATH,
+                'config' => APP_ROOT . '/config',
+                'logs' => APP_ROOT . '/logs',
+                'cache' => APP_ROOT . '/cache'
+            ]
         ];
-        
-        foreach ($configFiles as $file) {
-            $filePath = $configDir . $file;
-            if (file_exists($filePath)) {
-                $config = require $filePath;
-                if (is_array($config)) {
-                    self::$config = array_merge(self::$config, $config);
-                }
-            }
-        }
-        
-        // Load environment-specific config
-        $env = $_ENV['APP_ENV'] ?? 'production';
-        $envFile = $configDir . $env . '.php';
+    }
+    
+    /**
+     * Load environment specific configuration
+     */
+    private function loadEnvironmentConfig()
+    {
+        $env = $this->getEnvironment();
+        $envFile = $this->configPath . '/' . $env . '.php';
         
         if (file_exists($envFile)) {
-            $config = require $envFile;
-            if (is_array($config)) {
-                self::$config = array_merge(self::$config, $config);
-            }
+            $envConfig = require $envFile;
+            $this->config = array_merge_recursive($this->config, $envConfig);
         }
         
         // Load .env file if exists
-        self::loadEnvFile();
+        $this->loadDotEnv();
+    }
+    
+    /**
+     * Load .env file
+     */
+    private function loadDotEnv()
+    {
+        $envFile = APP_ROOT . '/.env';
         
-        self::$loaded = true;
+        if (!file_exists($envFile)) {
+            return;
+        }
+        
+        $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        
+        foreach ($lines as $line) {
+            if (strpos($line, '#') === 0) {
+                continue;
+            }
+            
+            list($key, $value) = explode('=', $line, 2);
+            $key = trim($key);
+            $value = trim($value);
+            
+            // Remove quotes
+            $value = trim($value, '"\'');
+            
+            // Set as environment variable
+            $_ENV[$key] = $value;
+            $_SERVER[$key] = $value;
+        }
     }
     
     /**
      * Get configuration value
-     * @param string $key Dot notation key (e.g., 'database.host')
+     * 
+     * @param string $key Dot notation key (e.g. 'database.host')
      * @param mixed $default Default value if key not found
      * @return mixed
      */
-    public static function get(string $key, $default = null)
+    public function get($key, $default = null)
     {
-        if (!self::$loaded) {
-            self::load();
-        }
-        
         $keys = explode('.', $key);
-        $value = self::$config;
+        $value = $this->config;
         
         foreach ($keys as $k) {
-            if (!is_array($value) || !array_key_exists($k, $value)) {
+            if (!isset($value[$k])) {
                 return $default;
             }
             $value = $value[$k];
@@ -92,20 +138,17 @@ class Config
     
     /**
      * Set configuration value
+     * 
      * @param string $key Dot notation key
      * @param mixed $value Value to set
      */
-    public static function set(string $key, $value): void
+    public function set($key, $value)
     {
-        if (!self::$loaded) {
-            self::load();
-        }
-        
         $keys = explode('.', $key);
-        $config = &self::$config;
+        $config = &$this->config;
         
         foreach ($keys as $k) {
-            if (!isset($config[$k]) || !is_array($config[$k])) {
+            if (!isset($config[$k])) {
                 $config[$k] = [];
             }
             $config = &$config[$k];
@@ -115,55 +158,36 @@ class Config
     }
     
     /**
-     * Check if configuration key exists
-     * @param string $key Dot notation key
-     * @return bool
-     */
-    public static function has(string $key): bool
-    {
-        return self::get($key) !== null;
-    }
-    
-    /**
      * Get all configuration
+     * 
      * @return array
      */
-    public static function all(): array
+    public function all()
     {
-        if (!self::$loaded) {
-            self::load();
-        }
-        
-        return self::$config;
+        return $this->config;
     }
     
     /**
-     * Load .env file
+     * Get current environment
+     * 
+     * @return string
      */
-    private static function loadEnvFile(): void
+    public function getEnvironment()
     {
-        $envFile = APP_ROOT . '.env';
-        
-        if (!file_exists($envFile)) {
-            return;
-        }
-        
-        $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        
-        foreach ($lines as $line) {
-            if (strpos(trim($line), '#') === 0) {
-                continue;
-            }
-            
-            list($name, $value) = explode('=', $line, 2);
-            $name = trim($name);
-            $value = trim($value);
-            
-            if (!array_key_exists($name, $_ENV)) {
-                $_ENV[$name] = $value;
-                $_SERVER[$name] = $value;
-                putenv("{$name}={$value}");
-            }
-        }
+        return $_ENV['APP_ENV'] ?? 'development';
     }
+    
+    /**
+     * Check if debug mode is enabled
+     * 
+     * @return bool
+     */
+    public function isDebug()
+    {
+        return $this->get('app.debug', false);
+    }
+    
+    // Prevent cloning and unserialization
+    private function __clone() {}
+    public function __wakeup() {}
 }
