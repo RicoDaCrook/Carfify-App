@@ -1,77 +1,104 @@
 <?php
 
-namespace Core;
-
 class Router
 {
-    private static $routes = [];
-    private static $currentRoute = null;
+    private $routes = [];
+    private $basePath = '';
+    private $currentGroup = '';
 
-    public static function get($uri, $callback)
+    public function __construct($basePath = '')
     {
-        self::addRoute('GET', $uri, $callback);
+        $this->basePath = rtrim($basePath, '/');
     }
 
-    public static function post($uri, $callback)
+    public function get($path, $handler)
     {
-        self::addRoute('POST', $uri, $callback);
+        return $this->addRoute('GET', $path, $handler);
     }
 
-    public static function put($uri, $callback)
+    public function post($path, $handler)
     {
-        self::addRoute('PUT', $uri, $callback);
+        return $this->addRoute('POST', $path, $handler);
     }
 
-    public static function delete($uri, $callback)
+    public function put($path, $handler)
     {
-        self::addRoute('DELETE', $uri, $callback);
+        return $this->addRoute('PUT', $path, $handler);
     }
 
-    private static function addRoute($method, $uri, $callback)
+    public function delete($path, $handler)
     {
-        self::$routes[] = [
-            'method' => $method,
-            'uri' => $uri,
-            'callback' => $callback
+        return $this->addRoute('DELETE', $path, $handler);
+    }
+
+    public function group($prefix, $callback)
+    {
+        $previousGroup = $this->currentGroup;
+        $this->currentGroup = $previousGroup . '/' . trim($prefix, '/');
+        
+        $callback($this);
+        
+        $this->currentGroup = $previousGroup;
+    }
+
+    private function addRoute($method, $path, $handler)
+    {
+        $fullPath = $this->basePath . $this->currentGroup . '/' . trim($path, '/');
+        $fullPath = rtrim($fullPath, '/');
+        $fullPath = $fullPath ?: '/';
+
+        $this->routes[] = [
+            'method' => strtoupper($method),
+            'path' => $fullPath,
+            'handler' => $handler,
+            'pattern' => $this->createPattern($fullPath)
         ];
+
+        return $this;
     }
 
-    public static function dispatch()
+    private function createPattern($path)
     {
-        $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-        $method = $_SERVER['REQUEST_METHOD'];
+        $pattern = preg_replace('/\//', '\/', $path);
+        $pattern = preg_replace('/\{([^}]+)\}/', '(?P<$1>[^/]+)', $pattern);
+        return '/^' . $pattern . '$/i';
+    }
 
-        foreach (self::$routes as $route) {
-            if ($route['method'] === $method && self::match($route['uri'], $uri, $matches)) {
-                self::$currentRoute = $route;
-                
-                if (is_callable($route['callback'])) {
-                    return call_user_func_array($route['callback'], $matches);
-                }
-                
-                if (is_string($route['callback'])) {
-                    list($controller, $method) = explode('@', $route['callback']);
-                    $controller = "App\\Controllers\\{$controller}";
-                    $controllerInstance = new $controller();
-                    return call_user_func_array([$controllerInstance, $method], $matches);
-                }
+    public function dispatch($method = null, $uri = null)
+    {
+        $method = $method ?: $_SERVER['REQUEST_METHOD'];
+        $uri = $uri ?: $_SERVER['REQUEST_URI'];
+
+        $path = parse_url($uri, PHP_URL_PATH);
+        $path = rtrim($path, '/');
+        $path = $path ?: '/';
+
+        foreach ($this->routes as $route) {
+            if ($route['method'] !== strtoupper($method)) {
+                continue;
+            }
+
+            if (preg_match($route['pattern'], $path, $matches)) {
+                $params = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
+                return $this->callHandler($route['handler'], $params);
             }
         }
 
-        http_response_code(404);
-        echo "404 Not Found";
+        throw new Exception("Route nicht gefunden: {$method} {$path}");
     }
 
-    private static function match($route, $uri, &$matches = [])
+    private function callHandler($handler, $params = [])
     {
-        $route = preg_replace('/\{([^}]+)\}/', '([^/]+)', $route);
-        $route = '#^' . $route . '$#';
-        
-        if (preg_match($route, $uri, $matches)) {
-            array_shift($matches);
-            return true;
+        if (is_callable($handler)) {
+            return call_user_func_array($handler, $params);
         }
-        
-        return false;
+
+        if (is_string($handler) && strpos($handler, '@') !== false) {
+            list($controller, $method) = explode('@', $handler);
+            $controller = new $controller();
+            return call_user_func_array([$controller, $method], $params);
+        }
+
+        throw new Exception("Ungültiger Handler");
     }
 }

@@ -1,30 +1,15 @@
 <?php
 
-namespace Core;
-
 class Database
 {
     private static $instance = null;
-    private $pdo;
+    private $connection;
+    private $config;
 
     private function __construct()
     {
-        $config = require_once __DIR__ . '/../config/database.php';
-        
-        try {
-            $this->pdo = new \PDO(
-                "mysql:host={$config['host']};dbname={$config['database']};charset={$config['charset']}",
-                $config['username'],
-                $config['password'],
-                [
-                    \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-                    \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
-                    \PDO::ATTR_EMULATE_PREPARES => false,
-                ]
-            );
-        } catch (\PDOException $e) {
-            die('Database connection failed: ' . $e->getMessage());
-        }
+        $this->config = Config::getInstance();
+        $this->connect();
     }
 
     public static function getInstance()
@@ -35,9 +20,35 @@ class Database
         return self::$instance;
     }
 
+    private function connect()
+    {
+        $dbConfig = $this->config->get('db');
+        
+        try {
+            $dsn = "mysql:host={$dbConfig['host']};dbname={$dbConfig['name']};charset=utf8mb4";
+            $this->connection = new PDO($dsn, $dbConfig['user'], $dbConfig['pass']);
+            $this->connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $this->connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            if ($this->config->get('app.debug')) {
+                die("Datenbankfehler: " . $e->getMessage());
+            } else {
+                die("Datenbankverbindung fehlgeschlagen");
+            }
+        }
+    }
+
+    public function getConnection()
+    {
+        if (!$this->connection) {
+            $this->connect();
+        }
+        return $this->connection;
+    }
+
     public function query($sql, $params = [])
     {
-        $stmt = $this->pdo->prepare($sql);
+        $stmt = $this->getConnection()->prepare($sql);
         $stmt->execute($params);
         return $stmt;
     }
@@ -52,8 +63,33 @@ class Database
         return $this->query($sql, $params)->fetchAll();
     }
 
-    public function lastInsertId()
+    public function insert($table, $data)
     {
-        return $this->pdo->lastInsertId();
+        $columns = implode(', ', array_keys($data));
+        $placeholders = ':' . implode(', :', array_keys($data));
+        $sql = "INSERT INTO {$table} ({$columns}) VALUES ({$placeholders})";
+        
+        $this->query($sql, $data);
+        return $this->getConnection()->lastInsertId();
+    }
+
+    public function update($table, $data, $where, $whereParams = [])
+    {
+        $set = [];
+        foreach ($data as $key => $value) {
+            $set[] = "{$key} = :{$key}";
+        }
+        $set = implode(', ', $set);
+        
+        $sql = "UPDATE {$table} SET {$set} WHERE {$where}";
+        $params = array_merge($data, $whereParams);
+        
+        return $this->query($sql, $params)->rowCount();
+    }
+
+    public function delete($table, $where, $params = [])
+    {
+        $sql = "DELETE FROM {$table} WHERE {$where}";
+        return $this->query($sql, $params)->rowCount();
     }
 }
