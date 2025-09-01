@@ -1,82 +1,75 @@
 <?php
 /**
  * Carfify v4.0 - Main Entry Point
- * 
- * @package Carfify
- * @version 4.0
- * @author Carfify Team
- * @license MIT
+ * Enterprise Grade Car Management System
  */
+
+declare(strict_types=1);
 
 // Error reporting for development
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', '1');
 
-// Define base constants
-if (!defined('BASE_PATH')) {
-    define('BASE_PATH', __DIR__);
+// Define application root
+if (!defined('APP_ROOT')) {
+    define('APP_ROOT', dirname(__FILE__) . DIRECTORY_SEPARATOR);
 }
 
+// Define core directory
 if (!defined('CORE_PATH')) {
-    define('CORE_PATH', BASE_PATH . '/core');
+    define('CORE_PATH', APP_ROOT . 'core' . DIRECTORY_SEPARATOR);
 }
 
-// Include core files with correct paths
-require_once CORE_PATH . '/CarfifyCore.php';
-require_once CORE_PATH . '/Database.php';
-require_once CORE_PATH . '/SessionManager.php';
-require_once CORE_PATH . '/Router.php';
-require_once CORE_PATH . '/Config.php';
+// Load configuration first
+if (!file_exists(CORE_PATH . 'Config.php')) {
+    die('Critical Error: Config.php not found in ' . CORE_PATH);
+}
 
-// Initialize the application
+// Load configuration class
+require_once CORE_PATH . 'Config.php';
+
+// Initialize configuration
 try {
-    // Load configuration
     Config::load();
-    
-    // Initialize database connection
-    Database::getInstance();
-    
-    // Start session management
-    SessionManager::start();
-    
-    // Initialize core system
-    $app = new CarfifyCore();
-    
-    // Initialize router
-    $router = new Router();
-    
-    // Load routes
-    require_once BASE_PATH . '/routes/web.php';
-    
-    // Dispatch the request
-    $router->dispatch();
-    
 } catch (Exception $e) {
-    // Handle initialization errors
-    if (defined('DEBUG_MODE') && DEBUG_MODE) {
-        echo '<pre>';
-        echo "Carfify Initialization Error:\n";
-        echo "Message: " . $e->getMessage() . "\n";
-        echo "File: " . $e->getFile() . "\n";
-        echo "Line: " . $e->getLine() . "\n";
-        echo "Stack Trace:\n" . $e->getTraceAsString();
-        echo '</pre>';
-    } else {
-        // Log error and show user-friendly message
-        error_log('Carfify Error: ' . $e->getMessage());
-        echo '<h1>System Error</h1><p>Please try again later.</p>';
-    }
+    die('Configuration Error: ' . $e->getMessage());
 }
 
-// Shutdown function for cleanup
-register_shutdown_function(function() {
-    // Close database connection if exists
-    if (class_exists('Database')) {
-        Database::close();
+// Set timezone from config
+date_default_timezone_set(Config::get('app.timezone', 'UTC'));
+
+// Start session
+session_start();
+
+// Load autoloader for other classes
+if (file_exists(APP_ROOT . 'vendor' . DIRECTORY_SEPARATOR . 'autoload.php')) {
+    require_once APP_ROOT . 'vendor' . DIRECTORY_SEPARATOR . 'autoload.php';
+} else {
+    // Fallback autoloader
+    spl_autoload_register(function ($class) {
+        $file = APP_ROOT . str_replace('\\', DIRECTORY_SEPARATOR, $class) . '.php';
+        if (file_exists($file)) {
+            require_once $file;
+        }
+    });
+}
+
+// Check if application is installed
+if (!file_exists(APP_ROOT . 'config' . DIRECTORY_SEPARATOR . 'app.php')) {
+    header('Location: install.php');
+    exit;
+}
+
+// Initialize application
+try {
+    $app = new Core\Application();
+    $app->run();
+} catch (Exception $e) {
+    if (Config::get('app.debug', false)) {
+        throw $e;
+    } else {
+        error_log($e->getMessage());
+        header('HTTP/1.1 500 Internal Server Error');
+        echo 'An error occurred. Please try again later.';
     }
-    
-    // Save session data
-    if (class_exists('SessionManager')) {
-        SessionManager::close();
-    }
-});
+}

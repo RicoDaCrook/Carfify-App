@@ -1,98 +1,169 @@
 <?php
+/**
+ * Carfify v4.0 - Configuration Management
+ * Enterprise Grade Configuration Handler
+ */
+
+declare(strict_types=1);
 
 namespace Core;
 
 class Config
 {
-    private static $config = [];
-    private static $initialized = false;
-
-    private static function init()
+    private static array $config = [];
+    private static bool $loaded = false;
+    
+    /**
+     * Load all configuration files
+     * @throws \Exception
+     */
+    public static function load(): void
     {
-        if (self::$initialized) {
+        if (self::$loaded) {
             return;
         }
-
-        $configPath = dirname(__DIR__) . '/config/';
         
-        // Lade Hauptkonfiguration
-        if (file_exists($configPath . 'config.php')) {
-            self::$config = require $configPath . 'config.php';
+        $configDir = APP_ROOT . 'config' . DIRECTORY_SEPARATOR;
+        
+        if (!is_dir($configDir)) {
+            throw new \Exception('Configuration directory not found: ' . $configDir);
         }
-
-        // Lade Umgebungs-spezifische Konfiguration
-        $env = self::get('APP_ENV', 'production');
-        $envFile = $configPath . 'config.' . $env . '.php';
+        
+        // Load base configuration files in order
+        $configFiles = [
+            'app.php',
+            'database.php',
+            'cache.php',
+            'logging.php',
+            'security.php'
+        ];
+        
+        foreach ($configFiles as $file) {
+            $filePath = $configDir . $file;
+            if (file_exists($filePath)) {
+                $config = require $filePath;
+                if (is_array($config)) {
+                    self::$config = array_merge(self::$config, $config);
+                }
+            }
+        }
+        
+        // Load environment-specific config
+        $env = $_ENV['APP_ENV'] ?? 'production';
+        $envFile = $configDir . $env . '.php';
         
         if (file_exists($envFile)) {
-            $envConfig = require $envFile;
-            self::$config = array_merge(self::$config, $envConfig);
+            $config = require $envFile;
+            if (is_array($config)) {
+                self::$config = array_merge(self::$config, $config);
+            }
         }
-
-        self::$initialized = true;
+        
+        // Load .env file if exists
+        self::loadEnvFile();
+        
+        self::$loaded = true;
     }
-
-    public static function load()
+    
+    /**
+     * Get configuration value
+     * @param string $key Dot notation key (e.g., 'database.host')
+     * @param mixed $default Default value if key not found
+     * @return mixed
+     */
+    public static function get(string $key, $default = null)
     {
-        self::init();
-    }
-
-    public static function get($key, $default = null)
-    {
-        self::init();
+        if (!self::$loaded) {
+            self::load();
+        }
         
         $keys = explode('.', $key);
         $value = self::$config;
-
+        
         foreach ($keys as $k) {
-            if (!isset($value[$k])) {
+            if (!is_array($value) || !array_key_exists($k, $value)) {
                 return $default;
             }
             $value = $value[$k];
         }
-
+        
         return $value;
     }
-
-    public static function set($key, $value)
+    
+    /**
+     * Set configuration value
+     * @param string $key Dot notation key
+     * @param mixed $value Value to set
+     */
+    public static function set(string $key, $value): void
     {
-        self::init();
+        if (!self::$loaded) {
+            self::load();
+        }
         
         $keys = explode('.', $key);
         $config = &self::$config;
-
+        
         foreach ($keys as $k) {
-            if (!isset($config[$k])) {
+            if (!isset($config[$k]) || !is_array($config[$k])) {
                 $config[$k] = [];
             }
             $config = &$config[$k];
         }
-
+        
         $config = $value;
     }
-
-    public static function has($key)
+    
+    /**
+     * Check if configuration key exists
+     * @param string $key Dot notation key
+     * @return bool
+     */
+    public static function has(string $key): bool
     {
-        self::init();
         return self::get($key) !== null;
     }
-
-    public static function all()
+    
+    /**
+     * Get all configuration
+     * @return array
+     */
+    public static function all(): array
     {
-        self::init();
+        if (!self::$loaded) {
+            self::load();
+        }
+        
         return self::$config;
     }
-
-    public static function reload()
+    
+    /**
+     * Load .env file
+     */
+    private static function loadEnvFile(): void
     {
-        self::$initialized = false;
-        self::$config = [];
-        self::init();
-    }
-
-    private static function loadConfig()
-    {
-        // Legacy-Methode für Rückwärtskompatibilität
-        self::init();
+        $envFile = APP_ROOT . '.env';
+        
+        if (!file_exists($envFile)) {
+            return;
+        }
+        
+        $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        
+        foreach ($lines as $line) {
+            if (strpos(trim($line), '#') === 0) {
+                continue;
+            }
+            
+            list($name, $value) = explode('=', $line, 2);
+            $name = trim($name);
+            $value = trim($value);
+            
+            if (!array_key_exists($name, $_ENV)) {
+                $_ENV[$name] = $value;
+                $_SERVER[$name] = $value;
+                putenv("{$name}={$value}");
+            }
+        }
     }
 }
