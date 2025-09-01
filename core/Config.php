@@ -1,48 +1,48 @@
 <?php
 
+namespace Core;
+
 class Config
 {
-    private static $instance = null;
-    private $config = [];
+    private static $config = [];
+    private static $initialized = false;
 
-    private function __construct()
+    private static function init()
     {
-        $this->loadConfig();
-    }
-
-    public static function getInstance()
-    {
-        if (self::$instance === null) {
-            self::$instance = new self();
+        if (self::$initialized) {
+            return;
         }
-        return self::$instance;
-    }
 
-    private function loadConfig()
-    {
-        $configFile = __DIR__ . '/../config/config.php';
-        if (file_exists($configFile)) {
-            $this->config = include $configFile;
-        } else {
-            $this->config = [
-                'db' => [
-                    'host' => 'localhost',
-                    'name' => 'carfify',
-                    'user' => 'root',
-                    'pass' => ''
-                ],
-                'app' => [
-                    'debug' => true,
-                    'base_url' => 'http://localhost/carfify'
-                ]
-            ];
+        $configPath = dirname(__DIR__) . '/config/';
+        
+        // Lade Hauptkonfiguration
+        if (file_exists($configPath . 'config.php')) {
+            self::$config = require $configPath . 'config.php';
         }
+
+        // Lade Umgebungs-spezifische Konfiguration
+        $env = self::get('APP_ENV', 'production');
+        $envFile = $configPath . 'config.' . $env . '.php';
+        
+        if (file_exists($envFile)) {
+            $envConfig = require $envFile;
+            self::$config = array_merge(self::$config, $envConfig);
+        }
+
+        self::$initialized = true;
     }
 
-    public function get($key, $default = null)
+    public static function load()
     {
+        self::init();
+    }
+
+    public static function get($key, $default = null)
+    {
+        self::init();
+        
         $keys = explode('.', $key);
-        $value = $this->config;
+        $value = self::$config;
 
         foreach ($keys as $k) {
             if (!isset($value[$k])) {
@@ -54,10 +54,12 @@ class Config
         return $value;
     }
 
-    public function set($key, $value)
+    public static function set($key, $value)
     {
+        self::init();
+        
         $keys = explode('.', $key);
-        $config = &$this->config;
+        $config = &self::$config;
 
         foreach ($keys as $k) {
             if (!isset($config[$k])) {
@@ -67,5 +69,30 @@ class Config
         }
 
         $config = $value;
+    }
+
+    public static function has($key)
+    {
+        self::init();
+        return self::get($key) !== null;
+    }
+
+    public static function all()
+    {
+        self::init();
+        return self::$config;
+    }
+
+    public static function reload()
+    {
+        self::$initialized = false;
+        self::$config = [];
+        self::init();
+    }
+
+    private static function loadConfig()
+    {
+        // Legacy-Methode für Rückwärtskompatibilität
+        self::init();
     }
 }
