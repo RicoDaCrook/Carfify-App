@@ -60,15 +60,16 @@ try {
         } else {
             throw new Exception('Config.php nicht gefunden in: ' . CORE_PATH);
         }
-    }
-    
-    // Config initialisieren
-    $config = Config::getInstance();
-    
-    // Application starten
-    echo "Carfify v4.0 erfolgreich geladen!<br>";
-    echo "Config-Klasse geladen: " . (class_exists('Config') ? 'Ja' : 'Nein') . "<br>";
-    
-} catch (Exception $e) {
-    die('Fehler beim Start: ' . $e->getMessage());
-}
+
+ // Load configuration
+require_once __DIR__ . '/config/Config.php';
+
+// Get config instance
+$config = Config::getInstance();
+
+// Set error reporting based on debug mode
+error_reporting($config->get('app.debug') ? E_ALL : 0);
+ini_set('display_errors', $config->get('app.debug') ? 1 : 0);
+
+ // Initialize application
+ $app = new App($config);
