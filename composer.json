@@ -1,33 +1,18 @@
 {
-    "name": "carfify/v4.0",
-    "description": "Carfify Enterprise Application v4.0",
+    "name": "carfify/webapp",
+    "description": "Carfify Web Application",
     "type": "project",
     "license": "MIT",
-    "authors": [
-        {
-            "name": "Carfify AI",
-            "email": "dev@carfify.com"
-        }
-    ],
     "require": {
         "php": ">=7.4"
     },
     "autoload": {
         "psr-4": {
-            "Core\\": "core/",
-            "App\\": "src/"
-        },
-        "files": [
-            "core/helpers.php"
-        ]
-    },
-    "autoload-dev": {
-        "psr-4": {
-            "Tests\\": "tests/"
+            "Config\\": "src/Config/",
+            "Core\\": "src/Core/",
+            "Controllers\\": "src/Controllers/",
+            "Models\\": "src/Models/",
+            "Views\\": "src/Views/"
         }
-    },
-    "config": {
-        "optimize-autoloader": true,
-        "sort-packages": true
     }
 }
