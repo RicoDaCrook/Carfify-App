@@ -1,9 +1,11 @@
 <?php
 
-class HomeController {
-    
-    public function landingPage() {
-        // Daten für die Landing-Page
+require_once __DIR__ . '/BaseController.php';
+
+class HomeController extends BaseController
+{
+    public function landingPage(): void
+    {
         $data = [
             'title' => 'Carfify - KI-Fahrzeugdiagnose',
             'features' => [
@@ -43,8 +45,7 @@ class HomeController {
                 'satisfied_users' => 9876
             ]
         ];
-        
-        // Template laden
-        require_once 'templates/home/landing-page.php';
+
+        $this->render('home/landing-page', $data);
     }
 }
