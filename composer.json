@@ -8,11 +8,12 @@
     },
     "autoload": {
         "psr-4": {
-            "Config\\": "src/Config/",
-            "Core\\": "src/Core/",
-            "Controllers\\": "src/Controllers/",
-            "Models\\": "src/Models/",
-            "Views\\": "src/Views/"
-        }
+            "Config\\": "config/",
+            "Core\\": "core/"
+        },
+        "classmap": [
+            "classes/",
+            "controllers/"
+        ]
     }
 }
